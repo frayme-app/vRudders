@@ -30,7 +30,7 @@ pwsh -NoProfile -File scripts/Build-Driver.ps1
 pwsh -NoProfile -File scripts/Build-InstallerHelper.ps1 -OutputDirectory artifacts/helper
 ```
 
-The tools script downloads Microsoft compiler 14.44 and SDK/WDK packages 10.0.26100.6584 into ignored `.tools/`, checking compiler payloads against Microsoft's manifest. No global Visual Studio/WDK installation is required. The driver uses UMDF 2.33, targeting Windows 11 x64. The helper uses public SetupAPI/NewDev functions to manage only `root\VRuddersPoc` under HIDClass.
+The tools script downloads Microsoft compiler 14.44 and SDK/WDK packages 10.0.26100.6584 into ignored `.tools/`, checking compiler payloads against Microsoft's manifest. No global Visual Studio/WDK installation is required. The driver uses UMDF 2.33, targeting Windows 11 x64. The helper uses public SetupAPI/NewDev functions to manage only the VRudders root device under HIDClass.
 
 Driver output is **unsigned** in `artifacts/driver`; compilation does not install it. Native code builds with warnings as errors, stack protection, ASLR, NX, and CFG.
 
@@ -77,6 +77,8 @@ Each build creates a fresh `artifacts/builds/<version>-<timestamp>/` containing 
 
 NSIS 3.12 is downloaded as a portable ZIP and checked against a pinned SHA-256. No NSIS installation or DevCon redistribution is required. The release includes .NET runtime 10.0.10; maintainers should update this pin for future security servicing. `-AllowDirty` creates a local test build marked dirty, without a source ZIP. Do not publish that build.
 
+Uninstaller signing runs through a small build-only Windows launcher with console creation disabled. It propagates the signing process's exit code and is not included in the installed app.
+
 Normal Setup allows the Windows Security publisher-approval dialog for the signed driver. Signature validity and previously approved publisher trust are separate checks: a newly signed catalog can require another prompt. The native helper's `install` command allows that UI; `install-silent` suppresses it and fails if approval is needed. Setup `/S` uses the latter and records the failure in `driver-setup.log` without a blocking error dialog. If it reports `0xE0000242`, rerun Setup interactively. The helper never imports certificates or changes Windows security policy. See [Microsoft's installation flag documentation](https://learn.microsoft.com/en-us/windows/win32/api/newdev/nf-newdev-updatedriverforplugandplaydevicesw) and [publisher-prompt troubleshooting](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/troubleshooting-driver-signing-installation).
 
 Signatures/timestamps and tool servicing mean bit-for-bit reproducibility is not promised. The manifest records the Git revision, tool/runtime versions, driver version, and payload hashes. Keep credentials, `.tools/`, and `artifacts/` out of Git.
@@ -97,7 +99,7 @@ The following test **actively moves virtual yaw**. Close every VRudders copy and
 Get-Content artifacts/driver-test.txt
 ```
 
-The beta blocks competing forwarding/driver-test processes. Read-only listing, screenshots, and isolated UI workflow checks are exempt. The UI test uses a temporary settings directory and never starts forwarding. The old POC lacks this guard: do not open it after starting the beta.
+The app blocks competing forwarding/driver-test processes. Read-only listing, screenshots, and isolated UI workflow checks are exempt. The UI test uses a temporary settings directory and never starts forwarding.
 
 Before publishing: inspect signatures/hashes; test clean install on another Windows 11 x64 PC; verify the dots and an in-game flight; test disconnect, app exit, uninstall, and reinstall. Windows may need online certificate-chain validation even though the runtime is bundled. A source ZIP contains only the committed source, never Azure credentials or the local development toolchain.
 

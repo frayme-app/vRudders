@@ -36,7 +36,7 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright © 2026 Ermis Catevatis"
 !insertmacro MUI_LANGUAGE "English"
 
 !ifdef SIGN_SCRIPT
-!uninstfinalize '"${PWSH}" -NoProfile -File "${SIGN_SCRIPT}" -Metadata "${SIGN_METADATA}" -Path "%1" -CopyTo "${UNINSTALL_ARCHIVE}"' = 0
+!uninstfinalize '"${SIGN_RUNNER}" "${PWSH}" -NoProfile -NonInteractive -File "${SIGN_SCRIPT}" -Metadata "${SIGN_METADATA}" -Path "%1" -CopyTo "${UNINSTALL_ARCHIVE}"' = 0
 !endif
 
 Function .onInit

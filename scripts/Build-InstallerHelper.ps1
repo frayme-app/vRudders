@@ -13,3 +13,5 @@ $env:LIB = @("$vc/lib/x64", "$libs/um/x64", "$libs/ucrt/x64") -join ';'
 New-Item -ItemType Directory -Force $OutputDirectory | Out-Null
 & "$vc/bin/Hostx64/x64/cl.exe" /nologo /MT /W4 /WX /O2 /GS /guard:cf /D_WIN32_WINNT=0x0A00 "/Fo$OutputDirectory/DriverSetup.obj" "$root/installer/DriverSetup.c" /link "/OUT:$OutputDirectory/VRudders.DriverSetup.exe" /DYNAMICBASE /NXCOMPAT /GUARD:CF /MANIFEST:EMBED "/MANIFESTUAC:level='asInvoker' uiAccess='false'" setupapi.lib newdev.lib cfgmgr32.lib wintrust.lib advapi32.lib winmm.lib
 if ($LASTEXITCODE -ne 0) { throw "Installer helper compile failed ($LASTEXITCODE)" }
+& "$vc/bin/Hostx64/x64/cl.exe" /nologo /MT /W4 /WX /O2 /GS /guard:cf "/Fo$OutputDirectory/SignRunner.obj" "$root/installer/SignRunner.c" /link "/OUT:$OutputDirectory/VRudders.SignRunner.exe" /SUBSYSTEM:WINDOWS /DYNAMICBASE /NXCOMPAT /GUARD:CF /MANIFEST:EMBED "/MANIFESTUAC:level='asInvoker' uiAccess='false'"
+if ($LASTEXITCODE -ne 0) { throw "Windowless signing launcher compile failed ($LASTEXITCODE)" }

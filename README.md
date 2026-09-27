@@ -7,18 +7,18 @@
 
 VRudders reads your pedals in Windows and forwards movement to a virtual joystick you can bind to yaw. Select a controller, select Z, check the moving dots, and fly.
 
-**Early beta · Windows 11 x64 · yaw only.** Yaw forwarding has been flight-tested with Turtle Beach VelocityOne Rudder, and the 0.2.0-beta.3 installer has passed a local upgrade test. Broader flight and clean-machine testing remain in progress. Other controllers that expose WinMM axes can be selected, but other hardware and games are unverified. The DirectInput fallback currently targets VelocityOne Rudder.
+**Early beta · Windows 11 x64 · yaw only.** Version 0.2.0-beta.3 has passed a flight test with Turtle Beach VelocityOne Rudder and a local upgrade test. Other hardware, games, and clean-machine configurations remain unverified. Other controllers that expose WinMM axes can be selected; the DirectInput fallback currently targets VelocityOne Rudder.
 
 ## Install
 
-1. Download the installer from [GitHub Releases](https://github.com/frayme-app/vRudders/releases) when available. Checksums are in `SHA256SUMS.txt`. If no release is listed, follow [Build from source](#build-from-source).
+1. Download **[VRudders 0.2.0-beta.3 for Windows x64](https://github.com/frayme-app/vRudders/releases/download/v0.2.0-beta.3/VRudders-0.2.0-beta.3-Setup-x64.exe)**. The [release page](https://github.com/frayme-app/vRudders/releases/tag/v0.2.0-beta.3) includes checksums and matching source. You can also [build from source](#build-from-source).
 2. Finish your flight and close **all** VRudders windows.
 3. Run Setup. It installs the app, bundled .NET runtime, and signed virtual controller driver. Administrator permission is required for setup/removal; normal app use does not require it.
 4. Restart only if requested. Launch **VRudders** from the Start menu.
 
 Requires Windows 11 on an Intel/AMD 64-bit PC, pedals in PC mode, and permission to install a device. Windows 10 and ARM64 are not supported. No Azure account, SDK, vJoy, HidHide, or separate .NET installation is needed to use the release.
 
-**Upgrading:** run the new Setup after closing the app and finishing your flight. It replaces the existing installation and updates the same virtual device, without installing a second controller. Profiles and calibration stay in your user settings. Setup changes the exact legacy Windows label **VRudders POC** to **VRudders Yaw**, preserving custom labels. Restart games to reload their controller lists. Existing bindings should carry over because the identity stays the same; verify both directions, since a game that stores names in bindings may require reassignment.
+**Upgrading:** run the new Setup after closing the app and finishing your flight. It replaces the existing installation and updates the same virtual device, without installing a second controller. Profiles and calibration stay in your user settings. Restart games to reload their controller lists. Existing bindings should carry over because the device identity stays the same; verify both directions after upgrading and reassign the axis if needed.
 
 ### Windows prompts
 
@@ -40,7 +40,7 @@ Get-FileHash .\VRudders-0.2.0-beta.3-Setup-x64.exe -Algorithm SHA256
 1. Select **VelocityOne Rudder** and input axis **Z**.
 2. Select **VRudders · Original response**. Move the pedals: the first dot is raw physical input; the second is processed yaw.
 3. Click **Start**. The third dot shows Windows' actual virtual Z readback.
-4. Open the **flight or HOTAS controls** in the game and bind yaw left/right to **VRudders Yaw**. The app also accepts the older driver named **VRudders POC**. The new driver's visible name changes; its hardware ID and Z protocol stay the same. Verify game bindings after upgrading.
+4. Open the **flight or HOTAS controls** in the game and bind yaw left/right to **VRudders Yaw**.
 5. Test left, right, and neutral in a flight. If reversed, stop, open **Tuning & profiles**, **Duplicate** the protected profile, enable **Reverse yaw direction**, and **Apply & save**. Bypass can stay enabled for reversal alone.
 6. **Keep VRudders running while flying.** Minimizing is fine. Closing or stopping centers virtual yaw.
 
@@ -95,12 +95,12 @@ Calibration stays with the selected device and axis. It changes VRudders' interp
 | --- | --- |
 | No first-dot movement | Check USB/PC mode, Refresh, controller selection, and Z. Test the physical device in Windows Game Controllers. |
 | VelocityOne lists only X/Y in the previous beta | Update to 0.2.0. Some systems report zero axes/positions through WinMM. The DirectInput fallback obtains the real X/Y/Z; it never fabricates a Z entry. |
-| Input/processed dots move, virtual dot does not | Start. If unavailable, close VRudders and rerun Setup. Check Device Manager for VRudders Yaw (or the older VRudders POC). Save the exact error. |
+| Input/processed dots move, virtual dot does not | Start. If unavailable, close VRudders and rerun Setup. Check Device Manager for VRudders Yaw. Save the exact error. |
 | All dots move; game does not bind | Start before launching the game, check HOTAS and conflicting bindings. Separately test Steam Input disabled for that game if needed. |
 | Pedals were unplugged | Wait for rediscovery, verify movement, and Start. If the identity changed, for example after moving USB ports, Refresh and select manually. |
 | Start is disabled after editing | Apply & save, or Reset draft. Duplicate the protected profile to edit it. |
 | Saved settings are invalid | The original file is kept and the app falls back to its protected preset. Back up and repair/move the file to enable saving again. |
-| Another copy is running | Use or close that window, including the original POC or another Windows session. Do not open the old POC after starting the beta. |
+| Another copy is running | Use or close the existing window, including a copy running in another Windows session. Keep one VRudders instance open. |
 | Driver setup fails | Keep Windows security enabled. Inspect `C:\Program Files\VRudders\driver-setup.log` and relevant entries in `C:\Windows\INF\setupapi.dev.log`. Rerun Setup or remove the partially installed app through Settings. |
 
 Report the app/Windows/game versions, pedal model, which dots move, and exact error in a [GitHub issue](https://github.com/frayme-app/vRudders/issues). Review logs before sharing local paths/device identifiers. VRudders does not upload diagnostics or collect telemetry. See [SECURITY.md](SECURITY.md) for private vulnerability reports.

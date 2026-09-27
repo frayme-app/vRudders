@@ -88,7 +88,7 @@ try {
     $sizeKB = [int][Math]::Ceiling((($files | Measure-Object bytes -Sum).Sum) / 1024)
     $uninstallInclude = Join-Path $build 'UninstallFiles.nsh'
     $compilerArgs = @('/V2','/INPUTCHARSET','UTF8',"/DROOT=$root","/DPAYLOAD=$payload","/DOUTPUT=$out","/DVERSION=$Version","/DNUMERIC_VERSION=$numericVersion","/DSIZE_KB=$sizeKB","/DUNINSTALL_FILES=$uninstallInclude")
-    if ($Sign) { $compilerArgs += @("/DSIGN_SCRIPT=$PSScriptRoot/Sign-File.ps1","/DSIGN_METADATA=$SigningMetadata","/DPWSH=$PSHOME/pwsh.exe","/DUNINSTALL_ARCHIVE=$build/native/Uninstall.signed.exe") }
+    if ($Sign) { $compilerArgs += @("/DSIGN_SCRIPT=$PSScriptRoot/Sign-File.ps1","/DSIGN_METADATA=$SigningMetadata","/DPWSH=$PSHOME/pwsh.exe","/DSIGN_RUNNER=$build/native/VRudders.SignRunner.exe","/DUNINSTALL_ARCHIVE=$build/native/Uninstall.signed.exe") }
     $compilerArgs += "$root/installer/VRudders.nsi"
     & "$root/.tools/nsis-3.12/Bin/makensis.exe" @compilerArgs
     if ($LASTEXITCODE -ne 0) { throw 'Installer compile failed.' }

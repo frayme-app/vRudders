@@ -1,6 +1,6 @@
 # VRudders 0.2.0-beta.3 — Rudder Control
 
-Early beta. Local upgrade verified on Windows 11 x64; broader hardware, clean-machine, and flight testing remain in progress. See GitHub Releases for downloadable packages when available.
+Early beta. Flight test and local upgrade verified with Turtle Beach VelocityOne Rudder on Windows 11 x64. Other hardware, games, and clean-machine configurations remain unverified.
 
 ## Installer correction
 
@@ -15,8 +15,8 @@ Early beta. Local upgrade verified on Windows 11 x64; broader hardware, clean-ma
 - Large green START / red STOP button with adjacent forwarding state and instructions.
 - Protected default renamed **VRudders · Original response**; custom names remain unchanged.
 - Bidirectional curve: negative values amplify small pedal inputs; positive values preserve the existing soft response. At −100%, 25% travel gives about 58% yaw. Endpoints remain unchanged. Format 1 profiles migrate without changing their response; new settings/exports use format 2, with a backup of the original settings on first save.
-- Setup updates the app and root device in place, preserving user settings. After installation it migrates only the exact old Windows OEM label to **VRudders Yaw**. No new name overrides or replacement of custom labels.
-- Restart games after upgrading. The hardware identity stays the same, but a game that caches names may need rebinding.
+- Setup updates the app and virtual device in place, preserving profiles and calibration.
+- Restart games after upgrading. The device identity stays the same; verify both yaw directions and reassign bindings if needed.
 
 ## Missing VelocityOne Z input fixed
 
@@ -34,9 +34,7 @@ Some systems report no usable axes or positions for VelocityOne through WinMM, e
 
 ## Branding and compatibility
 
-App: **VRudders — Rudder Control**. Driver display/product name: **VRudders Yaw**. Driver source changes only the product string/comment; INF changes its name/version. Hardware ID, serial, VID/PID, descriptor, feature report, Z assignment, neutral output, and watchdog remain unchanged. The new app accepts the old **VRudders POC** driver for local testing/upgrades. Recheck game bindings after the name update.
-
-The driver package has a new signature for the updated product name. Recheck game bindings after upgrading, and restart games that cache controller names.
+App: **VRudders — Rudder Control**. Virtual controller: **VRudders Yaw**. Setup keeps the same device identity and Z protocol across upgrades. Stop forwarding or close the app to center virtual yaw; the driver also centers after a lost heartbeat.
 
 ## Validation and limits
 
