@@ -3,8 +3,6 @@
 [![Build](https://github.com/frayme-app/vRudders/actions/workflows/build.yml/badge.svg)](https://github.com/frayme-app/vRudders/actions/workflows/build.yml)
 [![App license: MIT](https://img.shields.io/badge/app_license-MIT-blue.svg)](LICENSE)
 
-![Original VRudders helicopter artwork](src/VRudders/Assets/helicopter-header.png)
-
 **Your pedals. Your response.**
 
 VRudders reads your pedals in Windows and forwards movement to a virtual joystick you can bind to yaw. Select a controller, select Z, check the moving dots, and fly.
@@ -50,9 +48,19 @@ The large green **START** button sends pedal movement to virtual yaw. While acti
 
 The three displays verify each Windows stage; the flight verifies the game's response. **Setup guide** opens offline instructions. Forwarding never starts automatically.
 
+### Live flight
+
+Compare raw pedal input, processed yaw, and the virtual Z axis Windows actually reads. The graph shows the response curve and live output. Use the large **START / STOP** button to control forwarding.
+
+![Live flight: physical pedals, processed yaw, virtual Windows readback, response graph, and Start button](docs/images/live-flight.png)
+
 ## Tune your pedals
 
 Stop forwarding before editing. In **Tuning & profiles**, duplicate the protected profile or create a new one, give it a name, and uncheck **Bypass tuning**. Edits preview immediately on the graph. **Apply & save** makes them active; unsaved edits block forwarding.
+
+![Tuning and profiles: custom profile with a negative curve for stronger yaw from less pedal travel](docs/images/tuning-profiles.png)
+
+The example uses a **−75% response curve** with **100% yaw strength** for stronger yaw near center. Positive curve values soften the response. Profile names are yours to choose; the protected default is **VRudders · Original response**. Scroll within the tuning panel for precision, trim, and tray options.
 
 | Control | Behavior |
 | --- | --- |
@@ -72,6 +80,14 @@ The graph line shows static response; the orange dot includes smoothing, precisi
 The protected **VRudders · Original response** profile bypasses every new tuning stage. New profiles start in bypass. Settings live in `%LOCALAPPDATA%\VRudders\settings.json`, validated and saved atomically. Precision/trim currently use function keys; no HOTAS button assignments or automatic profile switching.
 
 For an aggressive profile, disable bypass, set Response curve below zero, and keep yaw strength at 100%. End dead zones can additionally shorten the travel needed for full yaw. The graph previews the result before applying. Version 0.2.0-beta.2 writes profile format 2; format 1 imports keep their existing soft response. The first settings migration saves an exact `settings-v1-backup-*.json` alongside the new file. Custom profile names are never renamed.
+
+## Device calibration
+
+Use this tab when the pedals rest off-center or have unequal travel. Stop forwarding, release the pedals at their natural center, and select **Capture center**. Hold each physical stop while capturing left and right, then select **Save device calibration**. Enable **Use this device's calibration** in a custom tuning profile and **Apply & save**.
+
+Calibration stays with the selected device and axis. It changes VRudders' interpretation of input; Windows and pedal firmware calibration are untouched.
+
+![Device calibration: capture center, left stop, and right stop, then save for the selected pedal axis](docs/images/device-calibration.png)
 
 ## Troubleshooting
 
