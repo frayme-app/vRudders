@@ -1,0 +1,44 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Build app
+        run: |
+          dotnet publish src/VRudders -c Release -r win-x64 --self-contained true -o artifacts/ci-app -p:RuntimeFrameworkVersion=10.0.10
+          if ($LASTEXITCODE -ne 0) { throw 'App build failed.' }
+      - name: Verify response and profiles
+        run: |
+          $app = (Resolve-Path artifacts/ci-app/VRudders.exe).Path
+          foreach ($test in @('self-test', 'ui-self-test')) {
+            $report = Join-Path $PWD "artifacts/$test.txt"
+            $process = Start-Process -FilePath $app -ArgumentList @("--$test", ('"' + $report + '"')) -WindowStyle Hidden -Wait -PassThru
+            if ($process.ExitCode -ne 0 -or !(Test-Path $report)) { throw "$test failed." }
+            Get-Content $report
+          }
+      - name: Prepare native toolchain
+        run: ./scripts/Get-Toolchain.ps1
+      - name: Build unsigned driver
+        run: ./scripts/Build-Driver.ps1 -OutputDirectory artifacts/ci-driver
+      - name: Build setup helper
+        run: ./scripts/Build-InstallerHelper.ps1 -OutputDirectory artifacts/ci-helper

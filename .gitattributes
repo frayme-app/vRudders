@@ -1,0 +1,14 @@
+* text=auto
+*.cs text eol=lf
+*.csproj text eol=lf
+*.c text eol=lf
+*.inf text eol=crlf
+*.ps1 text eol=lf
+*.nsi text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.html text eol=lf
+*.svg text eol=lf
+*.png binary
+*.ico binary

@@ -1,0 +1,49 @@
+; Adapted from Microsoft's vhidmini2 UMDF sample. See LICENSE-MS-PL.txt.
+[Version]
+Signature="$WINDOWS NT$"
+Class=HIDClass
+ClassGuid={745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Provider=%Provider%
+DriverVer=09/27/2026,0.2.0.0
+CatalogFile=VRudders.cat
+PnpLockdown=1
+
+[DestinationDirs]
+DefaultDestDir=13
+[SourceDisksNames]
+1=%Disk%,,,
+[SourceDisksFiles]
+VRudders.dll=1
+[Manufacturer]
+%Provider%=Models,NTamd64.10.0...22000
+[Models.NTamd64.10.0...22000]
+%Device%=Install,root\VRuddersPoc
+[Install.NT]
+CopyFiles=DriverCopy
+Include=MsHidUmdf.inf,WUDFRD.inf
+Needs=MsHidUmdf.NT,WUDFRD_LowerFilter.NT
+[Install.NT.hw]
+Include=MsHidUmdf.inf,WUDFRD.inf
+Needs=MsHidUmdf.NT.hw,WUDFRD_LowerFilter.NT.hw
+[Install.NT.Services]
+Include=MsHidUmdf.inf,WUDFRD.inf
+Needs=MsHidUmdf.NT.Services,WUDFRD_LowerFilter.NT.Services
+[Install.NT.Filters]
+Include=WUDFRD.inf
+Needs=WUDFRD_LowerFilter.NT.Filters
+[Install.NT.Wdf]
+UmdfService=VRudders,DriverService
+UmdfServiceOrder=VRudders
+UmdfKernelModeClientPolicy=AllowKernelModeClients
+UmdfFileObjectPolicy=AllowNullAndUnknownFileObjects
+UmdfMethodNeitherAction=Copy
+UmdfFsContextUsePolicy=CanUseFsContext2
+[DriverService]
+UmdfLibraryVersion=2.33.0
+ServiceBinary=%13%\VRudders.dll
+[DriverCopy]
+VRudders.dll
+[Strings]
+Provider="VRudders"
+Device="VRudders Yaw"
+Disk="VRudders Yaw driver"
