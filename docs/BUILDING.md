@@ -99,7 +99,7 @@ The following test **actively moves virtual yaw**. Close every VRudders copy and
 Get-Content artifacts/driver-test.txt
 ```
 
-The app blocks competing forwarding/driver-test processes. Read-only listing, screenshots, and isolated UI workflow checks are exempt. The UI test uses a temporary settings directory and never starts forwarding.
+The app blocks competing forwarding/driver-test processes. Read-only listing, screenshots, and isolated UI workflow checks are exempt. The UI test uses a temporary settings directory and never writes to the real virtual controller. Its forwarding regression uses simulated controllers and time to exercise slow startup, fresh input, pause/neutral behavior, repeated Start/Stop, and input lost during connection.
 
 Before publishing: inspect signatures/hashes; test clean install on another Windows 11 x64 PC; verify the dots and an in-game flight; test disconnect, app exit, uninstall, and reinstall. Windows may need online certificate-chain validation even though the runtime is bundled. A source ZIP contains only the committed source, never Azure credentials or the local development toolchain.
 

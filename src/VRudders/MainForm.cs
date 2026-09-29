@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace VRudders;
 
-internal sealed class MainForm : Form
+internal sealed partial class MainForm : Form
 {
     readonly ComboBox devices = Combo(400), axes = Combo(65), profiles = Combo(300), precisionKey = Combo(75);
     readonly Button start = Button("START"), refresh = Button("Refresh"), apply = Button("Apply & save");
@@ -19,7 +19,7 @@ internal sealed class MainForm : Form
     readonly Button captureCenter = Button("1 · Capture center"), captureLeft = Button("2 · Capture left stop"), captureRight = Button("3 · Capture right stop"), saveCalibration = Button("Save device calibration");
     readonly Button clearCalibration = Button("Clear saved calibration");
     readonly System.Windows.Forms.Timer timer = new() { Interval = 16 };
-    readonly Stopwatch clock = Stopwatch.StartNew();
+    readonly ControllerBackend controllers;
     readonly YawProcessor processor = new();
     readonly NotifyIcon tray = new() { Text = "VRudders · Rudder Control", Icon = Branding.AppIcon };
     readonly ToolTip tips = new();
@@ -29,7 +29,7 @@ internal sealed class MainForm : Form
     IJoystickReader? reader;
     Joystick? selected, virtualDevice;
     Axis? axis;
-    VirtualOutput? output;
+    IYawOutput? output;
     Tuning active = new();
     bool loading, dirty, disconnected, closing;
     bool trimLeftDown, trimRightDown, trimResetDown;
@@ -44,8 +44,9 @@ internal sealed class MainForm : Form
     Calibration? DeviceCalibration => settings.Calibrations.GetValueOrDefault(CalibrationKey);
     bool Protected => CurrentProfile.Id == FlightProfile.BaselineId;
 
-    public MainForm()
+    public MainForm(ControllerBackend? controllers = null)
     {
+        this.controllers = controllers ?? new ControllerBackend();
         settings = SettingsStore.Load(out string? settingsError);
         settingsReadable = settingsError == null;
         axisPreference = settings.Axis;
@@ -154,7 +155,7 @@ internal sealed class MainForm : Form
         timer.Tick += (_, _) => Poll();
         ReloadProfiles(settings.SelectedProfile); RefreshDevices(settings.DeviceKey);
         if (settingsError != null) connection.Text = settingsError;
-        lastTick = clock.ElapsedMilliseconds; timer.Start();
+        lastTick = this.controllers.NowMilliseconds; timer.Start();
     }
 
     static ComboBox Combo(int width) => new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = width };
@@ -209,7 +210,7 @@ internal sealed class MainForm : Form
     void RefreshDevices(string? preferred = null, bool reconnect = false)
     {
         if (output != null) return;
-        var list = Joysticks.Enumerate().Where(d => !d.IsVirtual).ToList();
+        var list = controllers.Enumerate().Where(d => !d.IsVirtual).ToList();
         var matches = list.Where(d => d.Key == preferred).ToList();
         Joystick? choice = matches.Count == 1 ? matches[0] : null;
         if (!reconnect && string.IsNullOrEmpty(preferred)) choice = list.FirstOrDefault(d => d.Vendor == 0x10F5 && d.Product == 0x7012) ?? list.FirstOrDefault();
@@ -229,7 +230,7 @@ internal sealed class MainForm : Form
         if (selected == null || axis == null) { connection.Text = selected?.InputError ?? "Select a controller with a usable axis."; return; }
         try
         {
-            reader = selected.OpenReader(); disconnected = false; reconnectKey = selected.Key;
+            reader = controllers.OpenReader(selected); disconnected = false; reconnectKey = selected.Key;
             connection.Text = $"{selected.Name} · {selected.Backend} · {axis.Name} → virtual Z";
         }
         catch (Exception ex) { InputLost("Input unavailable: " + ex.Message); }
@@ -356,7 +357,7 @@ internal sealed class MainForm : Form
 
     void CapturePoint(int step)
     {
-        if (output != null || axis == null || reader == null || clock.ElapsedMilliseconds - lastRead > 200 || recent.Count < 5) return;
+        if (output != null || axis == null || reader == null || controllers.NowMilliseconds - lastRead > 200 || recent.Count < 5) return;
         var samples = recent.Order().ToArray(); uint value = samples[samples.Length / 2];
         if (step == 0) capturedCenter = value; else if (step == 1) capturedLeft = value; else capturedRight = value;
         UpdateCalibrationStatus();
@@ -382,12 +383,30 @@ internal sealed class MainForm : Form
     {
         if (dirty || selected == null || axis == null || reader == null || disconnected) return;
         ValidateCalibration(active);
-        if (clock.ElapsedMilliseconds - lastRead > 200) throw new IOException("Wait for live physical input before starting.");
-        virtualDevice = Joysticks.Enumerate().SingleOrDefault(d => d.IsVirtual) ?? throw new IOException("Virtual controller not found. Install the signed VRudders driver, then Refresh.");
+        if (!inputTrack.Active || controllers.NowMilliseconds - lastRead > 200) throw new IOException("Wait for live physical input before starting.");
+        var device = controllers.Enumerate().SingleOrDefault(d => d.IsVirtual) ?? throw new IOException("Virtual controller not found. Install the signed VRudders driver, then Refresh.");
         if (settingsReadable) Persist();
-        processor.Reset(); trimLeftDown = trimRightDown = trimResetDown = false;
-        output = VirtualOutput.Connect(); start.Text = "STOP"; UpdateLocks();
-        connection.Text = $"Forwarding {selected.Name} {axis.Name} → {virtualDevice.Name} Z · {CurrentProfile.Name}";
+        IYawOutput? pending = controllers.Connect();
+        try
+        {
+            // Discovery/connection can take longer than the in-flight pause limit.
+            // Recheck the pedals after that work; never start with the cached preview.
+            if (!reader.TryRead(out var position)) throw new IOException("Pedal input was lost while connecting. Check the pedals and try Start again.");
+            raw = position.Axis(axis.Index); lastRead = controllers.NowMilliseconds;
+            processor.Reset(); trimLeftDown = trimRightDown = trimResetDown = false;
+            output = pending; pending = null; virtualDevice = device;
+            start.Text = "STOP"; UpdateLocks();
+            connection.Text = $"Forwarding {selected.Name} {axis.Name} → {device.Name} Z · {CurrentProfile.Name}";
+            // Arm the pause check only once startup is finished, on every Start.
+            // The first Poll still reads fresh input before sending any active report.
+            lastTick = controllers.NowMilliseconds;
+        }
+        catch
+        {
+            StopForwarding("Could not start forwarding. Verify input and try again.");
+            throw;
+        }
+        finally { pending?.Dispose(); }
     }
     void StopForwarding(string? reason = null)
     {
@@ -399,21 +418,22 @@ internal sealed class MainForm : Form
     void InputLost(string message)
     {
         StopForwarding(message); reader?.Dispose(); reader = null;
-        disconnected = true; reconnectKey = selected?.Key; nextReconnect = clock.ElapsedMilliseconds + 3000;
+        disconnected = true; reconnectKey = selected?.Key; nextReconnect = controllers.NowMilliseconds + 3000;
         recent.Clear(); lastRead = 0; inputTrack.Active = processedTrack.Active = false; HideLivePreview();
         connection.Text = message + " Reconnect detection is active; forwarding resumes manually."; UpdateLocks();
     }
     void Poll()
     {
         if (closing) return;
-        long now = clock.ElapsedMilliseconds; double dt = (now - lastTick) / 1000.0; lastTick = now;
+        long now = controllers.NowMilliseconds, elapsed = now - lastTick;
+        double dt = elapsed / 1000.0; lastTick = now;
         if (disconnected && now >= nextReconnect)
         {
             nextReconnect = now + 3000;
             try { RefreshDevices(reconnectKey, true); } catch { /* Still absent; retain stopped state. */ }
         }
         if (reader == null || axis == null) return;
-        if (output != null && dt > 0.25) StopForwarding("Stopped after an app pause. Verify input and restart when ready.");
+        if (output != null && elapsed > 250) StopForwarding($"Stopped after an app pause ({elapsed} ms). Verify input and restart when ready.");
         try
         {
             if (!reader.TryRead(out var p)) { InputLost("Physical input disconnected or unavailable."); return; }
@@ -443,7 +463,7 @@ internal sealed class MainForm : Form
             if (output != null)
             {
                 ushort z = Joysticks.ToVirtual(processed); output.Send(z);
-                if (virtualDevice == null || !Joysticks.Matches(virtualDevice) || !Joysticks.TryRead(virtualDevice.Id, out var readback)) throw new IOException("Virtual Windows readback unavailable.");
+                if (virtualDevice == null || !controllers.TryReadback(virtualDevice, out var readback)) throw new IOException("Virtual Windows readback unavailable.");
                 outputTrack.Active = true; outputTrack.Value = Joysticks.Normalize(readback.Z, virtualDevice.Axes.Single(a => a.Name == "Z"));
                 outputStatus.Text = $"Sent Z {z:N0} · Windows Z {readback.Z:N0}";
             }

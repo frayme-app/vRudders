@@ -5,7 +5,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace VRudders;
 
-internal sealed class VirtualOutput : IDisposable
+internal sealed class VirtualOutput : IYawOutput
 {
     private readonly SafeFileHandle handle;
     private VirtualOutput(SafeFileHandle handle) => this.handle = handle;

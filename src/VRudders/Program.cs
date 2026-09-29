@@ -41,7 +41,8 @@ internal static class Program
                 ApplicationConfiguration.Initialize();
                 using var testForm = new MainForm { Opacity = 0, ShowInTaskbar = false };
                 testForm.Show(); Application.DoEvents(); testForm.VerifyEditorWorkflow(); testForm.Close();
-                File.WriteAllText(args[1], "PASS: protected bypass, new profile defaults, linked endpoints, edit/apply/save/reset, settings round-trip, disconnect identity checks, manual resume. Isolated temporary settings; no driver writes.");
+                MainForm.VerifyForwardingWorkflow();
+                File.WriteAllText(args[1], "PASS: protected bypass, new profile defaults, linked endpoints, edit/apply/save/reset, settings round-trip, disconnect identity checks, manual resume; slow forwarding startup, fresh input, real pause/neutral, repeated Start/Stop, input lost during connection. Isolated temporary settings and simulated forwarding; no driver writes.");
                 return 0;
             }
             catch (Exception ex) { File.WriteAllText(args[1], "FAIL: " + ex); return 1; }

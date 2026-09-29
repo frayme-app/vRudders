@@ -5,13 +5,15 @@
 
 **Your pedals. Your response.**
 
+**0.2.0-beta.4 fixes Start immediately stopping with “Stopped after an app pause” when connecting to controllers takes longer than expected.** See the [release notes](docs/RELEASE-NOTES.md).
+
 VRudders reads your pedals in Windows and forwards movement to a virtual joystick you can bind to yaw. Select a controller, select Z, check the moving dots, and fly.
 
-**Early beta · Windows 11 x64 · yaw only.** Version 0.2.0-beta.3 has passed a flight test with Turtle Beach VelocityOne Rudder and a local upgrade test. Other hardware, games, and clean-machine configurations remain unverified. Other controllers that expose WinMM axes can be selected; the DirectInput fallback currently targets VelocityOne Rudder.
+**Early beta · Windows 11 x64 · yaw only.** Beta.4 passed automated regression checks and a local clean-install check after removing the previous app, settings, and driver packages. Beta.3 passed a flight test with Turtle Beach VelocityOne Rudder and a local upgrade test. Other hardware, games, and clean-machine configurations remain unverified. Other controllers that expose WinMM axes can be selected; the DirectInput fallback currently targets VelocityOne Rudder.
 
 ## Install
 
-1. Download **[VRudders 0.2.0-beta.3 for Windows x64](https://github.com/frayme-app/vRudders/releases/download/v0.2.0-beta.3/VRudders-0.2.0-beta.3-Setup-x64.exe)**. The [release page](https://github.com/frayme-app/vRudders/releases/tag/v0.2.0-beta.3) includes checksums and matching source. You can also [build from source](#build-from-source).
+1. Download **[VRudders 0.2.0-beta.4 for Windows x64](https://github.com/frayme-app/vRudders/releases/download/v0.2.0-beta.4/VRudders-0.2.0-beta.4-Setup-x64.exe)**. The [release page](https://github.com/frayme-app/vRudders/releases/tag/v0.2.0-beta.4) includes checksums and matching source. You can also [build from source](#build-from-source).
 2. Finish your flight and close **all** VRudders windows.
 3. Run Setup. It installs the app, bundled .NET runtime, and signed virtual controller driver. Administrator permission is required for setup/removal; normal app use does not require it.
 4. Restart only if requested. Launch **VRudders** from the Start menu.
@@ -30,9 +32,9 @@ Requires Windows 11 on an Intel/AMD 64-bit PC, pedals in PC mode, and permission
 Optional PowerShell verification (official releases should report `Valid`):
 
 ```powershell
-Get-AuthenticodeSignature .\VRudders-0.2.0-beta.3-Setup-x64.exe |
+Get-AuthenticodeSignature .\VRudders-0.2.0-beta.4-Setup-x64.exe |
     Format-List Status, SignerCertificate
-Get-FileHash .\VRudders-0.2.0-beta.3-Setup-x64.exe -Algorithm SHA256
+Get-FileHash .\VRudders-0.2.0-beta.4-Setup-x64.exe -Algorithm SHA256
 ```
 
 ## Get flying
@@ -96,6 +98,7 @@ Calibration stays with the selected device and axis. It changes VRudders' interp
 | No first-dot movement | Check USB/PC mode, Refresh, controller selection, and Z. Test the physical device in Windows Game Controllers. |
 | VelocityOne lists only X/Y in the previous beta | Update to 0.2.0. Some systems report zero axes/positions through WinMM. The DirectInput fallback obtains the real X/Y/Z; it never fabricates a Z entry. |
 | Input/processed dots move, virtual dot does not | Start. If unavailable, close VRudders and rerun Setup. Check Device Manager for VRudders Yaw. Save the exact error. |
+| Start immediately stops with “Stopped after an app pause” | Update to beta.4 or later. Beta.3 can mistake slow controller connection for a pause during flight. If it happens during a flight on beta.4, note the pause duration shown, verify physical input, and restart when ready. |
 | All dots move; game does not bind | Start before launching the game, check HOTAS and conflicting bindings. Separately test Steam Input disabled for that game if needed. |
 | Pedals were unplugged | Wait for rediscovery, verify movement, and Start. If the identity changed, for example after moving USB ports, Refresh and select manually. |
 | Start is disabled after editing | Apply & save, or Reset draft. Duplicate the protected profile to edit it. |

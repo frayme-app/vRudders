@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$')][string]$Version = '0.2.0-beta.3',
+    [ValidatePattern('^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$')][string]$Version = '0.2.0-beta.4',
     [string]$DriverDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'artifacts/driver'),
     [switch]$Sign,
     [string]$SigningMetadata = (Join-Path (Split-Path $PSScriptRoot -Parent) 'signing.local.json'),

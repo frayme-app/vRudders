@@ -1,45 +1,35 @@
-# VRudders 0.2.0-beta.3 — Rudder Control
+# VRudders 0.2.0-beta.4 — Start forwarding fix
 
-Early beta. Flight test and local upgrade verified with Turtle Beach VelocityOne Rudder on Windows 11 x64. Other hardware, games, and clean-machine configurations remain unverified.
+This release fixes **Start immediately stopping with “Stopped after an app pause. Verify input and restart when ready.”** The physical and processed indicators could keep moving while virtual yaw stayed stopped.
 
-## Installer correction
+On some PCs, connecting to controllers takes longer than the app expected. VRudders was counting that connection time as an interruption during flight and stopping itself. The pause check now begins after the connection finishes.
 
-- Normal Setup now allows Windows to request approval for the signed driver publisher. Beta.2 always suppressed that dialog, causing `0xE0000242` when the new certificate had not yet been approved.
-- Explicit `/S` installations still suppress prompts and fail with a readable instruction to rerun Setup normally if publisher approval is required. No certificate imports or Windows security changes.
-- Same driver package and flight behavior as beta.2; this correction changes installer behavior and documentation.
+## What changed
 
-## Visual, curve, and upgrade update
+- Slow controller connections no longer trigger the pause check immediately after Start.
+- The app checks the pedals again after connecting, before allowing forwarding. If input disappeared during connection, the pending connection is closed.
+- Actual pauses during forwarding still stop output and center virtual yaw. The message now includes the pause duration in milliseconds to help with troubleshooting.
+- Added regression checks for slow startup, continued output, real pauses, manual restart, and input lost during connection.
 
-- Original rotor/yaw icon for the app, title bar, taskbar, tray, installer, and uninstaller.
-- Original generated helicopter header artwork, with no game logos or titles.
-- Large green START / red STOP button with adjacent forwarding state and instructions.
-- Protected default renamed **VRudders · Original response**; custom names remain unchanged.
-- Bidirectional curve: negative values amplify small pedal inputs; positive values preserve the existing soft response. At −100%, 25% travel gives about 58% yaw. Endpoints remain unchanged. Format 1 profiles migrate without changing their response; new settings/exports use format 2, with a backup of the original settings on first save.
-- Setup updates the app and virtual device in place, preserving profiles and calibration.
-- Restart games after upgrading. The device identity stays the same; verify both yaw directions and reassign bindings if needed.
+The virtual driver, device identity, Z-axis conversion, tuning controls, and profile format remain the same. Calibration, dead zones, soft/aggressive response curves, smoothing, precision, trim, profiles, and live displays are included.
 
-## Missing VelocityOne Z input fixed
+## Install or upgrade
 
-Some systems report no usable axes or positions for VelocityOne through WinMM, even while DirectInput exposes X/Y/Z. A nonexclusive DirectInput fallback now reads VelocityOne when WinMM lacks Z. The app no longer fabricates X/Y entries for a device reporting no axes.
+1. Download **VRudders-0.2.0-beta.4-Setup-x64.exe** from this release.
+2. Finish your flight and close VRudders, then run Setup. Windows 11 x64 is required; Setup includes the .NET runtime and signed virtual driver.
+3. Launch VRudders, select your pedals and **Z**, then click **Start**. Check the physical, processed, and Windows readback indicators before flying.
 
-## Flight controls
+Setup replaces the existing installation and updates the same virtual device without adding a second controller. Profiles and calibration stay in your user settings; a clean uninstall is not required. Restart games to reload their controller lists. Existing bindings should carry over; verify both directions and reassign the axis if needed.
 
-- Per-device center and unequal-travel calibration.
-- Center/end dead zones, response curve, sensitivity/output strength.
-- Protected working passthrough and game/aircraft profiles: duplicate, save, reset draft, import/export.
-- Physical, processed, and Windows readback meters; live curve preview beside the editor.
-- Optional time-based smoothing, hold-to-precision function key, and bounded rudder trim.
-- Optional tray operation, remembered selections, input-loss stop, and matching-device rediscovery with manual resume.
-- Explicit apply while stopped. All new tuning defaults to bypass; calibration stays with the device/axis.
+Setup needs administrator permission. Official signed releases use publisher **Ermis Catevatis**. Windows may separately request approval for the driver publisher, or skip that prompt if approval is already remembered. New downloads can still receive SmartScreen reputation warnings. Keep Windows security enabled; see the README for installation troubleshooting.
 
-## Branding and compatibility
+## Verification and scope
 
-App: **VRudders — Rudder Control**. Virtual controller: **VRudders Yaw**. Setup keeps the same device identity and Z protocol across upgrades. Stop forwarding or close the app to center virtual yaw; the driver also centers after a lost heartbeat.
+- The slow-start failure was reproduced by an automated test before the fix; the corrected startup and pause/neutral checks pass.
+- Tests cover every 16-bit yaw value and packet in both directions, tuning, profile storage, and the isolated UI workflow.
+- Beta.4 was clean-installed on the development PC after removing the previous app, settings, virtual device, and both old driver packages. Windows reported successful driver installation with no device errors or reboot required. That PC retained its prior publisher approval.
+- Beta.3 previously passed a flight test with Turtle Beach VelocityOne Rudder. Broader hardware, game, and previously unused Windows configurations remain unverified.
 
-## Validation and limits
+This is an early beta for Windows 11 on Intel/AMD 64-bit PCs. Keep VRudders running while playing. No toe-brake output, automatic forwarding, or automatic game/profile switching.
 
-Read-only self-tests cover every 16-bit Z value and packet in both directions, calibration, curve monotonicity/bounds, dead-zone continuity, strength, smoothing timing, precision transitions, trim reset, and profile validation. An isolated UI workflow test covers editing, saving, reset, protected bypass, and simulated disconnect/rediscovery. These do not replace physical unplug/replug and flight testing.
-
-Windows 11 x64. Yaw forwarding has been flight-tested with VelocityOne; other WinMM controllers remain unverified. No toe-brake output, HOTAS button assignments, automatic game/profile switching, or automatic forwarding. Precision/trim shortcuts use opt-in F keys. Keep the app running during play.
-
-MIT app/tools/docs; Microsoft-derived driver remains MS-PL. Public source/build instructions included. Setup/removal require administrator permission. New signed downloads can receive SmartScreen warnings; keep Windows security enabled. Local profiles/calibration remain after uninstall.
+The release includes the signed installer, matching source ZIP, build manifest, and SHA-256 checksums. Public app/tools/docs use MIT; the Microsoft-derived driver retains MS-PL. Build instructions are in `docs/BUILDING.md`.
