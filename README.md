@@ -15,7 +15,7 @@ VRudders reads your pedals in Windows and forwards movement to a virtual joystic
 
 1. Download **[VRudders 0.2.0-beta.4 for Windows x64](https://github.com/frayme-app/vRudders/releases/download/v0.2.0-beta.4/VRudders-0.2.0-beta.4-Setup-x64.exe)**. The [release page](https://github.com/frayme-app/vRudders/releases/tag/v0.2.0-beta.4) includes checksums and matching source. You can also [build from source](#build-from-source).
 2. Finish your flight and close **all** VRudders windows.
-3. Run Setup. It installs the app, bundled .NET runtime, and signed virtual controller driver. Administrator permission is required for setup/removal; normal app use does not require it.
+3. Run Setup and follow the [illustrated Windows prompts below](#windows-prompts). It installs the app, bundled .NET runtime, and signed virtual controller driver. Administrator permission is required for setup/removal; normal app use does not require it.
 4. Restart only if requested. Launch **VRudders** from the Start menu.
 
 Requires Windows 11 on an Intel/AMD 64-bit PC, pedals in PC mode, and permission to install a device. Windows 10 and ARM64 are not supported. No Azure account, SDK, vJoy, HidHide, or separate .NET installation is needed to use the release.
@@ -24,10 +24,38 @@ Requires Windows 11 on an Intel/AMD 64-bit PC, pedals in PC mode, and permission
 
 ### Windows prompts
 
-- **User Account Control:** official signed releases show publisher **Ermis Catevatis**, the developer's signing identity. Verify the source and publisher before approving.
-- **Windows Security — device software:** Windows may separately ask to install the controller driver from **Ermis Catevatis**, including on an upgrade with a new signing certificate. Review the publisher and choose **Install** to continue. Setup leaves this decision to you. If setup reports **0xE0000242**, run the latest Setup normally, without `/S`, so Windows can show that prompt. Beta.2 incorrectly suppressed it.
-- **SmartScreen:** new signed downloads may still show **Windows protected your PC** or an unrecognized-app warning. If you verified the official download and publisher, **More info** may offer **Run anyway**. Managed PCs may prohibit this. [Microsoft explains reputation warnings here.](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)
-- **Invalid signature, different/unknown publisher on an official release, driver trust failure, or antivirus detection:** stop and report the exact message. Do not disable antivirus, Secure Boot, memory integrity, or driver-signature enforcement, and do not import a root certificate. No such changes were needed on the tested PC.
+You may see these screens during installation. Download the **Setup `.exe` from the official release linked above**; the source ZIP is for building the app yourself, and its `.inf` file alone cannot install the driver.
+
+#### 1. SmartScreen: Windows protected your PC
+
+New signed downloads can still trigger a reputation warning. Check that the app is the VRudders Setup you downloaded from the official release and that the publisher identifies **Ermis Catevatis**, the developer's signing identity. Windows may show the full certificate name, including **CA, bc, Vancouver**, as in this screenshot.
+
+After those checks, select **More info** if needed, then **Run anyway** to open Setup. The screenshot shows the screen after More info has been opened.
+
+![SmartScreen for VRudders Setup, showing publisher Ermis Catevatis and the Run anyway button](docs/images/install-smartscreen.png)
+
+This warning concerns download reputation; a signature alone does not establish that software is safe. Managed PCs may prevent proceeding. [Microsoft explains SmartScreen reputation warnings.](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)
+
+#### 2. Administrator permission
+
+When **User Account Control** asks to allow Setup to make changes, check the publisher is **Ermis Catevatis** and select **Yes** to continue installing. Normal app use does not require administrator permission.
+
+#### 3. Windows Security: install the virtual controller
+
+When Windows asks **“Would you like to install this device software?”**, check these details:
+
+- **Name:** VRudders Human Interface Devices
+- **Publisher:** Ermis Catevatis
+
+Select **Install** to install the virtual controller that sends yaw to your game. Choosing **Don't Install** prevents this driver installation, so the app may open without a working virtual controller.
+
+![Windows Security showing VRudders Human Interface Devices, publisher Ermis Catevatis, and the Install button](docs/images/install-driver-prompt.png)
+
+**“Always trust software from Ermis Catevatis” is optional.** It is checked in the screenshot, but you can uncheck it and still select **Install** for this installation. Leaving it checked remembers trust for that signing certificate and can suppress this prompt on later installs. A new signing certificate may prompt again. [Microsoft explains the driver publisher prompt.](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/troubleshooting-driver-signing-installation)
+
+If Setup reports **0xE0000242**, run the latest Setup normally, without `/S`, so Windows can show the driver prompt. You do not need to install the `.inf` separately.
+
+**If the signature is invalid, the publisher is different/unknown, or Windows reports a driver trust failure or antivirus detection, stop and report the exact message.** Do not disable antivirus, Secure Boot, memory integrity, or driver-signature enforcement, and do not import a root certificate. No such changes were needed on the tested PC.
 
 Optional PowerShell verification (official releases should report `Valid`):
 
