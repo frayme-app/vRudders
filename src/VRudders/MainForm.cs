@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 namespace VRudders;
 
@@ -12,7 +11,8 @@ internal sealed partial class MainForm : Form
     readonly AxisTrack inputTrack = new(), processedTrack = new(), outputTrack = new();
     readonly CurveDisplay graph = new(), tuningGraph = new();
     readonly CheckBox bypass = Check("Bypass tuning · original linear yaw", true), reverse = Check("Reverse yaw direction"), useCalibration = Check("Use this device's calibration");
-    readonly CheckBox linkedEnds = Check("Link left / right ends", true), precision = Check("Enable hold-to-precision key"), trim = Check("Enable trim · F9 left / F10 right / F11 reset"), trayOption = Check("Minimize to the tray");
+    readonly CheckBox linkedEnds = Check("Link left / right ends", true), precision = Check("Enable hold-to-precision key"), trim = Check("Enable trim · F9 left / F10 right / F11 reset");
+    readonly CheckBox trayOption = Check("Minimize to the system tray"), closeTrayOption = Check("Close button hides to the tray"), startTrayOption = Check("Start in the tray (no open window)");
     readonly NumericUpDown dead = Number(0, 20), leftEnd = Number(0, 30), rightEnd = Number(0, 30), curve = Number(-100, 100), sensitivity = Number(10, 100, 100), smoothing = Number(0, 200), precisionCurve = Number(0, 100, 80);
     readonly TextBox profileName = new() { Width = 280, MaxLength = 80 };
     readonly FlowLayoutPanel profileActions = Flow(), tuningControls = Flow(), calibrationActions = Flow(), trimActions = Flow();
@@ -20,35 +20,37 @@ internal sealed partial class MainForm : Form
     readonly Button clearCalibration = Button("Clear saved calibration");
     readonly System.Windows.Forms.Timer timer = new() { Interval = 16 };
     readonly ControllerBackend controllers;
+    readonly ControllerWorker worker;
     readonly YawProcessor processor = new();
     readonly NotifyIcon tray = new() { Text = "VRudders · Rudder Control", Icon = Branding.AppIcon };
     readonly ToolTip tips = new();
     readonly Queue<uint> recent = new();
     readonly UserSettings settings;
     readonly bool settingsReadable;
-    IJoystickReader? reader;
-    Joystick? selected, virtualDevice;
+    Joystick? selected;
     Axis? axis;
-    IYawOutput? output;
     Tuning active = new();
     bool loading, dirty, disconnected, closing;
-    bool trimLeftDown, trimRightDown, trimResetDown;
     uint raw, minSeen = uint.MaxValue, maxSeen;
     uint? capturedCenter, capturedLeft, capturedRight;
     long lastTick, lastRead, nextReconnect;
     string? reconnectKey;
     string axisPreference = "Z";
     double processed;
+    bool Forwarding => worker.Snapshot.Forwarding;
+    bool HasInput => worker.Snapshot.InputAvailable;
     FlightProfile CurrentProfile => profiles.SelectedItem as FlightProfile ?? FlightProfile.Baseline;
     string CalibrationKey => (selected?.Key ?? "") + "/" + (axis?.Name ?? "Z");
     Calibration? DeviceCalibration => settings.Calibrations.GetValueOrDefault(CalibrationKey);
     bool Protected => CurrentProfile.Id == FlightProfile.BaselineId;
 
-    public MainForm(ControllerBackend? controllers = null)
+    public MainForm(ControllerBackend? controllers = null, bool? startInTray = null)
     {
         this.controllers = controllers ?? new ControllerBackend();
         settings = SettingsStore.Load(out string? settingsError);
         settingsReadable = settingsError == null;
+        worker = new(this.controllers);
+        initiallyHidden = startInTray ?? settings.StartInTray;
         axisPreference = settings.Axis;
         Text = "VRudders — Rudder Control · " + Application.ProductVersion.Split('+')[0];
         Icon = Branding.AppIcon;
@@ -66,7 +68,8 @@ internal sealed partial class MainForm : Form
         var flightTab = new TabPage("Live flight") { BackColor = BackColor, Padding = new(12) };
         var tuningTab = new TabPage("Tuning & profiles") { BackColor = BackColor, AutoScroll = true, Padding = new(12) };
         var calibrationTab = new TabPage("Device calibration") { BackColor = BackColor, AutoScroll = true, Padding = new(12) };
-        tabs.TabPages.AddRange([flightTab, tuningTab, calibrationTab]); root.Controls.Add(tabs, 0, 3);
+        var appTab = new TabPage("App & tray") { BackColor = BackColor, AutoScroll = true, Padding = new(12) };
+        tabs.TabPages.AddRange([flightTab, tuningTab, calibrationTab, appTab]); root.Controls.Add(tabs, 0, 3);
         var live = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
         live.ColumnStyles.Add(new(SizeType.Percent, 52)); live.ColumnStyles.Add(new(SizeType.Percent, 48)); flightTab.Controls.Add(live);
         var meters = Stack(); live.Controls.Add(meters, 0, 0);
@@ -74,7 +77,7 @@ internal sealed partial class MainForm : Form
         AddMeter(meters, "2  Processed yaw · preview / sent target", processedTrack, processedStatus);
         AddMeter(meters, "3  Virtual Z · independent Windows readback", outputTrack, outputStatus);
         Button lessTrim = Button("Trim −1%"), resetTrim = Button("Reset trim"), moreTrim = Button("Trim +1%");
-        lessTrim.Click += (_, _) => processor.ChangeTrim(-0.01); moreTrim.Click += (_, _) => processor.ChangeTrim(0.01); resetTrim.Click += (_, _) => processor.ResetTrim();
+        lessTrim.Click += (_, _) => worker.Invoke(s => s.ChangeTrim(-0.01)); moreTrim.Click += (_, _) => worker.Invoke(s => s.ChangeTrim(0.01)); resetTrim.Click += (_, _) => worker.Invoke(s => s.ResetTrim());
         trimActions.Controls.AddRange([lessTrim, resetTrim, moreTrim]); meters.Controls.Add(trimActions);
         var liveNotes = Label("Start forwarding, then bind the virtual Z axis to yaw in your game's flight or HOTAS controls.\nKeep VRudders running during your flight."); liveNotes.MaximumSize = new(460, 0); meters.Controls.Add(liveNotes);
         graph.Dock = DockStyle.Fill; live.Controls.Add(graph, 1, 0);
@@ -106,7 +109,10 @@ internal sealed partial class MainForm : Form
         tuningControls.Controls.Add(trim);
         tuningControls.Controls.Add(Label("Trim steps 1%, limited to ±20%; resets on Stop or profile change.\nGlobal F-key shortcuts are opt-in; choose keys unbound in your game."));
         editor.Controls.Add(Label("Edits preview while stopped. Apply & save before forwarding. Calibration is stored with the device; profiles export tuning only."));
-        editor.Controls.Add(trayOption);
+        var appSettings = Stack(); appTab.Controls.Add(appSettings);
+        appSettings.Controls.Add(Label("Keep flying in the background\n\nAlt-Tab, window focus, and showing or hiding VRudders do not change forwarding."));
+        appSettings.Controls.AddRange([startTrayOption, trayOption, closeTrayOption]);
+        appSettings.Controls.Add(Label("These are app settings, shared by all flight profiles.\n\nRight-click the VRudders icon beside the Windows clock for Start / Stop, Show, and Exit.\nDouble-click the icon to reopen this window. Windows may place the icon under the ^ arrow.\n\nStarting in the tray does not start forwarding automatically.\nExit stops forwarding, centers yaw, and quits the app."));
         tips.SetToolTip(bypass, "Preserves the original linear conversion and reversal. Skips calibration, dead zones, sensitivity, curve, smoothing, precision, and trim.");
         tips.SetToolTip(smoothing, "Exponential filter time constant: about 63% of a step in this many milliseconds. This is not measured game latency.");
         tips.SetToolTip(curve, "Negative values give more yaw for less pedal travel. At −100, 25% input produces about 58% yaw. Positive values soften the center. Both keep full endpoints at 100% yaw strength.");
@@ -116,7 +122,7 @@ internal sealed partial class MainForm : Form
         calibrationActions.Controls.AddRange([captureCenter, captureLeft, captureRight, saveCalibration]);
         calibrationPanel.Controls.Add(calibrationActions); calibrationPanel.Controls.Add(calibrationStatus);
         calibrationPanel.Controls.Add(clearCalibration);
-        clearCalibration.Click += (_, _) => SafeAction(() => { if (output != null) return; settings.Calibrations.Remove(CalibrationKey); Persist(); useCalibration.Checked = false; UpdateCalibrationStatus(); processor.Reset(); });
+        clearCalibration.Click += (_, _) => SafeAction(() => { if (Forwarding) return; settings.Calibrations.Remove(CalibrationKey); Persist(); useCalibration.Checked = false; UpdateCalibrationStatus(); processor.Reset(); });
         captureCenter.Click += (_, _) => CapturePoint(0); captureLeft.Click += (_, _) => CapturePoint(1); captureRight.Click += (_, _) => CapturePoint(2);
         saveCalibration.Click += (_, _) => SafeAction(SaveCalibration);
 
@@ -136,7 +142,7 @@ internal sealed partial class MainForm : Form
         windows.Click += (_, _) => Process.Start(new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "control.exe"), "joy.cpl") { UseShellExecute = true });
         guide.Click += (_, _) => { string path = Path.Combine(AppContext.BaseDirectory, "GETTING-STARTED.html"); if (File.Exists(path)) Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); else MessageBox.Show(this, "See README.md in the source checkout.", "Setup guide"); };
         refresh.Click += (_, _) => RefreshDevices(selected?.Key);
-        start.Click += (_, _) => { if (output != null) StopForwarding(); else SafeAction(StartForwarding); };
+        start.Click += (_, _) => ToggleForwarding();
         apply.Click += (_, _) => SafeAction(ApplyProfile);
         devices.SelectedIndexChanged += (_, _) => { if (!loading) SelectDevice(); };
         axes.SelectedIndexChanged += (_, _) => { if (!loading) SelectAxis(); };
@@ -146,12 +152,7 @@ internal sealed partial class MainForm : Form
         leftEnd.ValueChanged += (_, _) => { if (linkedEnds.Checked) rightEnd.Value = leftEnd.Value; };
         linkedEnds.CheckedChanged += (_, _) => { if (linkedEnds.Checked) rightEnd.Value = leftEnd.Value; };
         precisionKey.SelectedIndexChanged += (_, _) => DraftChanged(); profileName.TextChanged += (_, _) => DraftChanged();
-        trayOption.Checked = settings.MinimizeToTray;
-        trayOption.CheckedChanged += (_, _) => { settings.MinimizeToTray = trayOption.Checked; SafeAction(Persist); };
-        var menu = new ContextMenuStrip(); menu.Items.Add("Show VRudders", null, (_, _) => RestoreWindow()); menu.Items.Add("Stop forwarding", null, (_, _) => StopForwarding()); menu.Items.Add("Exit", null, (_, _) => Close());
-        tray.ContextMenuStrip = menu; tray.DoubleClick += (_, _) => RestoreWindow();
-        Resize += (_, _) => { if (WindowState == FormWindowState.Minimized && trayOption.Checked) { tray.Visible = true; Hide(); } };
-        FormClosing += (_, _) => { closing = true; timer.Stop(); StopForwarding(); reader?.Dispose(); reader = null; tray.Dispose(); tips.Dispose(); };
+        ConfigureTray();
         timer.Tick += (_, _) => Poll();
         ReloadProfiles(settings.SelectedProfile); RefreshDevices(settings.DeviceKey);
         if (settingsError != null) connection.Text = settingsError;
@@ -160,6 +161,7 @@ internal sealed partial class MainForm : Form
 
     static ComboBox Combo(int width) => new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = width };
     internal void SelectPreviewPage(int index) => Controls.OfType<TableLayoutPanel>().Single().Controls.OfType<TabControl>().Single().SelectedIndex = index;
+    internal void RequestTestExit() => RequestExit();
     internal void VerifyEditorWorkflow()
     {
         // Invoked only by the isolated UI regression command. Never starts forwarding.
@@ -177,13 +179,18 @@ internal sealed partial class MainForm : Form
         LoadProfile(FlightProfile.Baseline); // Select through the same ComboBox event as a user.
         profiles.SelectedItem = ((List<FlightProfile>)profiles.DataSource!).First(p => p.Id == FlightProfile.BaselineId);
         Check(Protected && active.Bypass && !active.TrimEnabled, "Working response remains recoverable.");
+        startTrayOption.Checked = true; closeTrayOption.Checked = false; trayOption.Checked = false;
+        restored = SettingsStore.Load(out error);
+        Check(error == null && restored.StartInTray && !restored.CloseToTray && !restored.MinimizeToTray,
+            "App/tray settings persist independently of the flight profile.");
+        startTrayOption.Checked = false; closeTrayOption.Checked = trayOption.Checked = true;
         if (selected != null)
         {
             string key = selected.Key; InputLost("UI regression: simulated input loss");
-            Check(output == null && disconnected && !start.Enabled && reader == null, "Loss stops forwarding and releases the reader.");
+            Check(!Forwarding && disconnected && !start.Enabled && !HasInput, "Loss stops forwarding and releases the reader.");
             RefreshDevices("deliberately-absent-test-identity", true);
-            Check(disconnected && reader == null, "Reconnect never substitutes a different device.");
-            RefreshDevices(key, true); Check(output == null, "Reconnect never resumes forwarding automatically.");
+            Check(disconnected && !HasInput, "Reconnect never substitutes a different device.");
+            RefreshDevices(key, true); Check(!Forwarding, "Reconnect never resumes forwarding automatically.");
         }
     }
     static Button Button(string text) => new() { Text = text, AutoSize = true, UseMnemonic = false, Margin = new(3) };
@@ -205,11 +212,10 @@ internal sealed partial class MainForm : Form
         track.Width = 450; panel.Controls.Add(track); label.MaximumSize = new(460, 0); panel.Controls.Add(label);
     }
     void SafeAction(Action action) { try { action(); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "VRudders", MessageBoxButtons.OK, MessageBoxIcon.Information); } }
-    void RestoreWindow() { Show(); WindowState = FormWindowState.Normal; Activate(); tray.Visible = false; }
 
     void RefreshDevices(string? preferred = null, bool reconnect = false)
     {
-        if (output != null) return;
+        if (Forwarding) return;
         var list = controllers.Enumerate().Where(d => !d.IsVirtual).ToList();
         var matches = list.Where(d => d.Key == preferred).ToList();
         Joystick? choice = matches.Count == 1 ? matches[0] : null;
@@ -223,14 +229,15 @@ internal sealed partial class MainForm : Form
 
     void SelectDevice()
     {
-        StopForwarding(); reader?.Dispose(); reader = null; selected = devices.SelectedItem as Joystick;
+        StopForwarding(); worker.Invoke(s => s.SelectInput(null, null)); selected = devices.SelectedItem as Joystick;
         loading = true; axes.DisplayMember = "Name"; axes.DataSource = selected?.Axes ?? [];
         axes.SelectedItem = selected?.Axes.FirstOrDefault(a => a.Name == axisPreference) ?? selected?.Axes.FirstOrDefault(a => a.Name == "Z") ?? selected?.Axes.FirstOrDefault(); loading = false;
         SelectAxis();
         if (selected == null || axis == null) { connection.Text = selected?.InputError ?? "Select a controller with a usable axis."; return; }
         try
         {
-            reader = controllers.OpenReader(selected); disconnected = false; reconnectKey = selected.Key;
+            if (worker.Snapshot.InputError is string error) { InputLost(error); return; }
+            disconnected = false; reconnectKey = selected.Key;
             connection.Text = $"{selected.Name} · {selected.Backend} · {axis.Name} → virtual Z";
         }
         catch (Exception ex) { InputLost("Input unavailable: " + ex.Message); }
@@ -239,6 +246,7 @@ internal sealed partial class MainForm : Form
     void SelectAxis()
     {
         StopForwarding(); axis = axes.SelectedItem as Axis; axisPreference = axis?.Name ?? "Z";
+        worker.Invoke(s => s.SelectInput(selected, axis));
         minSeen = uint.MaxValue; maxSeen = 0; recent.Clear(); lastRead = 0;
         capturedCenter = capturedLeft = capturedRight = null; inputTrack.Active = processedTrack.Active = false; HideLivePreview();
         UpdateCalibrationStatus(); UpdateLocks();
@@ -281,15 +289,16 @@ internal sealed partial class MainForm : Form
 
     void UpdateLocks()
     {
-        bool running = output != null;
-        devices.Enabled = axes.Enabled = profiles.Enabled = refresh.Enabled = profileActions.Enabled = calibrationActions.Enabled = !running;
+        bool running = Forwarding;
+        devices.Enabled = axes.Enabled = profiles.Enabled = refresh.Enabled = profileActions.Enabled = calibrationActions.Enabled = !running && worker.IsAlive;
         clearCalibration.Enabled = !running && DeviceCalibration != null;
         profileName.ReadOnly = Protected;
         tuningControls.Enabled = !running && !Protected;
         foreach (var control in new Control[] { useCalibration, dead, leftEnd, rightEnd, linkedEnds, curve, sensitivity, smoothing, precision, precisionKey, precisionCurve, trim }) control.Enabled = !bypass.Checked;
         rightEnd.Enabled = !bypass.Checked && !linkedEnds.Checked;
         apply.Enabled = !running && !Protected && dirty;
-        start.Enabled = running || (reader != null && axis != null && !disconnected && !dirty);
+        start.Enabled = running || (HasInput && axis != null && !disconnected && !dirty);
+        start.Text = running ? "STOP" : "START";
         start.BackColor = !start.Enabled ? Color.FromArgb(125, 139, 152) : running ? Color.FromArgb(180, 35, 50) : Color.FromArgb(20, 120, 70);
         start.ForeColor = Color.White;
         start.FlatAppearance.MouseOverBackColor = running ? Color.FromArgb(155, 27, 40) : Color.FromArgb(16, 101, 58);
@@ -297,9 +306,10 @@ internal sealed partial class MainForm : Form
         forwardingState.ForeColor = running ? Color.FromArgb(180, 35, 50) : Color.FromArgb(42, 66, 82);
         forwardingHint.Text = running ? "Pedals are driving virtual yaw.\nStop sends yaw back to center."
             : dirty ? "Apply & save, or reset your draft, to enable Start."
-            : start.Enabled ? "Send your pedals to the virtual yaw axis.\nKeep VRudders open while flying."
+            : start.Enabled ? "Send your pedals to the virtual yaw axis.\nVRudders can stay in the system tray while flying."
             : "Select your pedals and axis, then verify movement.";
         trimActions.Enabled = running && !active.Bypass && active.TrimEnabled;
+        UpdateTrayState();
         editStatus.Text = Protected ? "Protected original response. Duplicate this profile to tune it." : dirty ? "Previewing unsaved edits · Apply & save before flying." : "Saved profile · ready to fly.";
     }
 
@@ -315,7 +325,7 @@ internal sealed partial class MainForm : Form
 
     void ApplyProfile()
     {
-        if (output != null || Protected) return;
+        if (Forwarding || Protected) return;
         var tuning = Draft(); ValidateCalibration(tuning);
         var profile = CurrentProfile with { Name = profileName.Text.Trim(), Tuning = tuning }; profile.Validate();
         int index = settings.Profiles.FindIndex(p => p.Id == profile.Id); var old = settings.Profiles[index];
@@ -357,14 +367,14 @@ internal sealed partial class MainForm : Form
 
     void CapturePoint(int step)
     {
-        if (output != null || axis == null || reader == null || controllers.NowMilliseconds - lastRead > 200 || recent.Count < 5) return;
+        if (Forwarding || axis == null || !HasInput || controllers.NowMilliseconds - lastRead > 200 || recent.Count < 5) return;
         var samples = recent.Order().ToArray(); uint value = samples[samples.Length / 2];
         if (step == 0) capturedCenter = value; else if (step == 1) capturedLeft = value; else capturedRight = value;
         UpdateCalibrationStatus();
     }
     void SaveCalibration()
     {
-        if (output != null || axis == null) return;
+        if (Forwarding || axis == null) return;
         if (capturedCenter == null || capturedLeft == null || capturedRight == null) throw new InvalidDataException("Capture center, left stop, and right stop first.");
         var calibration = new Calibration(Math.Min(capturedLeft.Value, capturedRight.Value), capturedCenter.Value, Math.Max(capturedLeft.Value, capturedRight.Value));
         calibration.Validate(axis);
@@ -381,43 +391,31 @@ internal sealed partial class MainForm : Form
 
     void StartForwarding()
     {
-        if (dirty || selected == null || axis == null || reader == null || disconnected) return;
+        if (dirty || selected == null || axis == null || !HasInput || disconnected) return;
         ValidateCalibration(active);
-        if (!inputTrack.Active || controllers.NowMilliseconds - lastRead > 200) throw new IOException("Wait for live physical input before starting.");
-        var device = controllers.Enumerate().SingleOrDefault(d => d.IsVirtual) ?? throw new IOException("Virtual controller not found. Install the signed VRudders driver, then Refresh.");
         if (settingsReadable) Persist();
-        IYawOutput? pending = controllers.Connect();
         try
         {
-            // Discovery/connection can take longer than the in-flight pause limit.
-            // Recheck the pedals after that work; never start with the cached preview.
-            if (!reader.TryRead(out var position)) throw new IOException("Pedal input was lost while connecting. Check the pedals and try Start again.");
-            raw = position.Axis(axis.Index); lastRead = controllers.NowMilliseconds;
-            processor.Reset(); trimLeftDown = trimRightDown = trimResetDown = false;
-            output = pending; pending = null; virtualDevice = device;
-            start.Text = "STOP"; UpdateLocks();
-            connection.Text = $"Forwarding {selected.Name} {axis.Name} → {device.Name} Z · {CurrentProfile.Name}";
-            // Arm the pause check only once startup is finished, on every Start.
-            // The first Poll still reads fresh input before sending any active report.
-            lastTick = controllers.NowMilliseconds;
+            worker.Invoke(s => s.Start(active, DeviceCalibration));
+            processor.Reset(); lastUiForwarding = true; UpdateLocks();
+            connection.Text = $"Forwarding {selected.Name} {axis.Name} → VRudders Yaw Z · {CurrentProfile.Name}";
         }
         catch
         {
             StopForwarding("Could not start forwarding. Verify input and try again.");
             throw;
         }
-        finally { pending?.Dispose(); }
     }
     void StopForwarding(string? reason = null)
     {
-        bool wasForwarding = output != null;
-        output?.Dispose(); output = null; virtualDevice = null; processor.Reset(); start.Text = "START";
-        outputTrack.Active = false; outputTrack.Value = 0; outputStatus.Text = reason ?? (wasForwarding ? "Stopped · yaw resets to center" : "Not forwarding · connect to read virtual Z");
+        worker.Invoke(s => s.Stop(reason)); processor.Reset(); lastUiForwarding = false;
+        outputTrack.Active = false; outputTrack.Value = 0;
+        outputStatus.Text = worker.Snapshot.StopReason ?? "Not forwarding · connect to read virtual Z";
         UpdateLocks();
     }
     void InputLost(string message)
     {
-        StopForwarding(message); reader?.Dispose(); reader = null;
+        StopForwarding(message); worker.Invoke(s => s.SelectInput(null, null));
         disconnected = true; reconnectKey = selected?.Key; nextReconnect = controllers.NowMilliseconds + 3000;
         recent.Clear(); lastRead = 0; inputTrack.Active = processedTrack.Active = false; HideLivePreview();
         connection.Text = message + " Reconnect detection is active; forwarding resumes manually."; UpdateLocks();
@@ -427,21 +425,40 @@ internal sealed partial class MainForm : Form
         if (closing) return;
         long now = controllers.NowMilliseconds, elapsed = now - lastTick;
         double dt = elapsed / 1000.0; lastTick = now;
+        if (!worker.IsAlive)
+        {
+            inputTrack.Active = processedTrack.Active = outputTrack.Active = false;
+            outputTrack.Value = 0; HideLivePreview(); UpdateLocks();
+            connection.Text = worker.Snapshot.InputError ?? "The forwarding thread stopped. Exit and restart VRudders.";
+            outputStatus.Text = connection.Text; return;
+        }
         if (disconnected && now >= nextReconnect)
         {
             nextReconnect = now + 3000;
             try { RefreshDevices(reconnectKey, true); } catch { /* Still absent; retain stopped state. */ }
         }
-        if (reader == null || axis == null) return;
-        if (output != null && elapsed > 250) StopForwarding($"Stopped after an app pause ({elapsed} ms). Verify input and restart when ready.");
+        var state = worker.Snapshot;
+        if (lastUiForwarding && !state.Forwarding)
+        {
+            processor.Reset();
+            if (!Visible && state.StopReason != null)
+                tray.ShowBalloonTip(6000, "VRudders · forwarding stopped", state.StopReason, ToolTipIcon.Warning);
+        }
+        lastUiForwarding = state.Forwarding;
+        if (state.InputError != null && !disconnected) { InputLost(state.InputError); return; }
+        outputTrack.Active = state.Forwarding && state.ReadbackZ.HasValue;
+        outputTrack.Value = state.Readback;
+        outputStatus.Text = outputTrack.Active ? $"Sent Z {state.SentZ:N0} · Windows Z {state.ReadbackZ:N0}"
+            : state.StopReason ?? "Not forwarding · connect to read virtual Z";
+        UpdateLocks();
+        if (!state.InputAvailable || axis == null) return;
         try
         {
-            if (!reader.TryRead(out var p)) { InputLost("Physical input disconnected or unavailable."); return; }
-            raw = p.Axis(axis.Index); lastRead = now; minSeen = Math.Min(raw, minSeen); maxSeen = Math.Max(raw, maxSeen);
+            raw = state.Raw; lastRead = state.LastReadMilliseconds; minSeen = Math.Min(raw, minSeen); maxSeen = Math.Max(raw, maxSeen);
             recent.Enqueue(raw); if (recent.Count > 9) recent.Dequeue();
             inputTrack.Active = true; inputTrack.Value = Joysticks.Normalize(raw, axis);
             inputStatus.Text = $"{axis.Name}: {raw:N0} · {inputTrack.Value:+0.0%;-0.0%;0.0%} · {(minSeen < maxSeen ? "Movement detected" : "Waiting for movement")}";
-            var tuning = output != null ? active : Draft();
+            var tuning = state.Forwarding ? active : Draft();
             Calibration? calibration = DeviceCalibration;
             bool calibrationValid = true;
             if (!tuning.Bypass && tuning.UseCalibration)
@@ -450,29 +467,14 @@ internal sealed partial class MainForm : Form
                 catch { calibrationValid = false; }
             }
             if (!calibrationValid) { processedTrack.Active = false; processedStatus.Text = "Save a valid calibration or turn calibration off."; HideLivePreview(); return; }
-            bool held = output != null && !tuning.Bypass && tuning.PrecisionEnabled && IsKeyPressed(tuning.PrecisionKey);
-            if (output != null && !tuning.Bypass && tuning.TrimEnabled)
-            {
-                TrimKey(0x78, ref trimLeftDown, () => processor.ChangeTrim(-0.01)); TrimKey(0x79, ref trimRightDown, () => processor.ChangeTrim(0.01)); TrimKey(0x7A, ref trimResetDown, processor.ResetTrim);
-            }
-            processed = processor.Process(raw, axis, tuning, calibration, dt, held);
+            processed = state.Forwarding ? state.Processed : processor.Process(raw, axis, tuning, calibration, dt, false);
             processedTrack.Active = true; processedTrack.Value = processed;
-            processedStatus.Text = $"{processed:+0.0%;-0.0%;0.0%} · {(tuning.Bypass ? "Linear bypass" : dirty ? "Draft preview" : "Tuned")} · Trim {processor.Trim:+0%;-0%;0%}" + (processor.PrecisionActive ? " · Precision" : "");
+            processedStatus.Text = $"{processed:+0.0%;-0.0%;0.0%} · {(tuning.Bypass ? "Linear bypass" : dirty ? "Draft preview" : "Tuned")} · Trim {state.Trim:+0%;-0%;0%}" + (state.PrecisionActive ? " · Precision" : "");
             graph.SetResponse(axis, tuning, calibration); graph.Input = inputTrack.Value; graph.Output = processed; graph.Live = true; graph.Invalidate();
             tuningGraph.SetResponse(axis, tuning, calibration); tuningGraph.Input = inputTrack.Value; tuningGraph.Output = processed; tuningGraph.Live = true; tuningGraph.Invalidate();
-            if (output != null)
-            {
-                ushort z = Joysticks.ToVirtual(processed); output.Send(z);
-                if (virtualDevice == null || !controllers.TryReadback(virtualDevice, out var readback)) throw new IOException("Virtual Windows readback unavailable.");
-                outputTrack.Active = true; outputTrack.Value = Joysticks.Normalize(readback.Z, virtualDevice.Axes.Single(a => a.Name == "Z"));
-                outputStatus.Text = $"Sent Z {z:N0} · Windows Z {readback.Z:N0}";
-            }
             UpdateLocks();
         }
-        catch (Exception ex) { InputLost("Forwarding stopped: " + ex.Message); }
+        catch (Exception ex) { connection.Text = "Display update failed: " + ex.Message; }
     }
-    static void TrimKey(int key, ref bool previous, Action action) { bool pressed = IsKeyPressed(key); if (pressed && !previous) action(); previous = pressed; }
     void HideLivePreview() { graph.Live = tuningGraph.Live = false; graph.Invalidate(); tuningGraph.Invalidate(); }
-    static bool IsKeyPressed(int key) => (GetAsyncKeyState(key) & 0x8000) != 0;
-    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
 }

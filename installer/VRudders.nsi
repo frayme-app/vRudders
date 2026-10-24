@@ -59,7 +59,7 @@ Function .onInit
   Pop $0
   Pop $1
   ${If} $0 != 0
-    MessageBox MB_OK|MB_ICONSTOP "Close every VRudders window, then run Setup again.$\r$\n$1"
+    MessageBox MB_OK|MB_ICONSTOP "Exit VRudders using its tray icon beside the Windows clock, then run Setup again. Closing its window may only hide it.$\r$\n$1"
     SetErrorLevel 1618
     Abort
   ${EndIf}
@@ -81,6 +81,7 @@ Section "VRudders" MainSection
   WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VRudders" "EstimatedSize" ${SIZE_KB}
   CreateDirectory "$SMPROGRAMS\VRudders"
   CreateShortcut "$SMPROGRAMS\VRudders\VRudders.lnk" "$INSTDIR\VRudders.exe"
+  CreateShortcut "$SMPROGRAMS\VRudders\VRudders (tray).lnk" "$INSTDIR\VRudders.exe" "--tray"
   CreateShortcut "$SMPROGRAMS\VRudders\Setup guide.lnk" "$INSTDIR\GETTING-STARTED.html"
   DetailPrint "Installing the signed VRudders virtual controller..."
   ${If} ${Silent}
@@ -131,6 +132,7 @@ Section "Uninstall"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
   Delete "$SMPROGRAMS\VRudders\VRudders.lnk"
+  Delete "$SMPROGRAMS\VRudders\VRudders (tray).lnk"
   Delete "$SMPROGRAMS\VRudders\Setup guide.lnk"
   RMDir "$SMPROGRAMS\VRudders"
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\VRudders"

@@ -5,7 +5,7 @@
 
 **Your pedals. Your response.**
 
-**0.2.0-beta.4 fixes Start immediately stopping with “Stopped after an app pause” when connecting to controllers takes longer than expected.** See the [release notes](docs/RELEASE-NOTES.md).
+**0.3.0-beta.1 test candidate:** background forwarding and start-in-tray support. Window delays no longer trip the forwarding pause check. See the [release notes](docs/RELEASE-NOTES.md). The latest published installer below is still beta.4 until this candidate is flight-tested and released.
 
 VRudders reads your pedals in Windows and forwards movement to a virtual joystick you can bind to yaw. Select a controller, select Z, check the moving dots, and fly.
 
@@ -14,13 +14,13 @@ VRudders reads your pedals in Windows and forwards movement to a virtual joystic
 ## Install
 
 1. Download **[VRudders 0.2.0-beta.4 for Windows x64](https://github.com/frayme-app/vRudders/releases/download/v0.2.0-beta.4/VRudders-0.2.0-beta.4-Setup-x64.exe)**. The [release page](https://github.com/frayme-app/vRudders/releases/tag/v0.2.0-beta.4) includes checksums and matching source. You can also [build from source](#build-from-source).
-2. Finish your flight and close **all** VRudders windows.
+2. Finish your flight and **exit VRudders**. In versions with close-to-tray, right-click its icon beside the Windows clock and choose **Exit VRudders**; closing the window may only hide it.
 3. Run Setup and follow the [illustrated Windows prompts below](#windows-prompts). It installs the app, bundled .NET runtime, and signed virtual controller driver. Administrator permission is required for setup/removal; normal app use does not require it.
 4. Restart only if requested. Launch **VRudders** from the Start menu.
 
 Requires Windows 11 on an Intel/AMD 64-bit PC, pedals in PC mode, and permission to install a device. Windows 10 and ARM64 are not supported. No Azure account, SDK, vJoy, HidHide, or separate .NET installation is needed to use the release.
 
-**Upgrading:** run the new Setup after closing the app and finishing your flight. It replaces the existing installation and updates the same virtual device, without installing a second controller. Profiles and calibration stay in your user settings. Restart games to reload their controller lists. Existing bindings should carry over because the device identity stays the same; verify both directions after upgrading and reassign the axis if needed.
+**Upgrading:** finish your flight and choose **Exit VRudders** in its tray menu before running the new Setup. It replaces the existing installation and updates the same virtual device, without installing a second controller. Profiles and calibration stay in your user settings. Restart games to reload their controller lists. Existing bindings should carry over because the device identity stays the same; verify both directions after upgrading and reassign the axis if needed.
 
 ### Windows prompts
 
@@ -72,11 +72,21 @@ Get-FileHash .\VRudders-0.2.0-beta.4-Setup-x64.exe -Algorithm SHA256
 3. Click **Start**. The third dot shows Windows' actual virtual Z readback.
 4. Open the **flight or HOTAS controls** in the game and bind yaw left/right to **VRudders Yaw**.
 5. Test left, right, and neutral in a flight. If reversed, stop, open **Tuning & profiles**, **Duplicate** the protected profile, enable **Reverse yaw direction**, and **Apply & save**. Bypass can stay enabled for reversal alone.
-6. **Keep VRudders running while flying.** Minimizing is fine. Closing or stopping centers virtual yaw.
+6. **Keep VRudders running while flying.** In 0.3.0, minimizing or closing to the tray keeps yaw active. **Stop** or **Exit VRudders** centers yaw.
 
 The large green **START** button sends pedal movement to virtual yaw. While active it turns red and reads **STOP**. The adjacent text shows whether output is live or why Start is unavailable. Stop returns virtual yaw to center.
 
 The three displays verify each Windows stage; the flight verifies the game's response. **Setup guide** opens offline instructions. Forwarding never starts automatically.
+
+### Run in the system tray (0.3.0)
+
+In **App & tray**, enable **Start in the tray** to launch without an open window. You can also use the **VRudders (tray)** Start menu shortcut or run `VRudders.exe --tray`. Starting in the tray leaves forwarding stopped until you choose **Start forwarding**.
+
+Right-click the VRudders icon beside the Windows clock (it may be under the **^** arrow) for **Show VRudders**, a green **Start forwarding** / red **Stop forwarding** action, and **Exit VRudders**. Double-click the icon to reopen the window. Showing, hiding, resizing, or Alt-Tabbing does not change forwarding.
+
+**Close button hides to the tray** is enabled by default. Turn it off to make the X button exit. The separate **Minimize to the system tray** option controls the minimize button; upgrades preserve your previous minimize preference. These settings apply to the app, independently of flight profiles.
+
+Forwarding uses its own thread, so a busy or hidden window does not interrupt fresh pedal reads or virtual output. A disconnected pedal, failed output/readback, or an actual forwarding-thread pause still stops and centers yaw; verify input and restart manually. If forwarding stops while hidden, VRudders requests a Windows notification (Windows notification settings may suppress it).
 
 ### Live flight
 
@@ -103,7 +113,7 @@ The example uses a **−75% response curve** with **100% yaw strength** for stro
 | Precision key | Opt-in hold key, F8 by default, blends to a softer curve over 300 ms. Choose a key unbound in the game. |
 | Rudder trim | Opt-in F9/F10 steps left/right by 1%, F11 resets; buttons are also available. Limited to ±20%, eases at 10% per second, resets on Stop/profile change. |
 | Profiles | Name, duplicate, save, reset unsaved edits, import/export game or aircraft tuning. Calibration belongs to the device/axis and is not exported with profiles. |
-| Tray/reconnect | Optional minimize-to-tray keeps forwarding active. Tray menu offers Show, Stop, Exit. Disconnect stops and centers yaw. Matching devices are rediscovered; resume manually. Closing the window exits. |
+| Tray/reconnect | App & tray offers start-in-tray, minimize-to-tray, and close-to-tray. Tray menu offers Show, Start/Stop, Exit. Forwarding runs independently of the window. Disconnect stops and centers yaw; matching devices are rediscovered, then resume manually. |
 
 The graph line shows static response; the orange dot includes smoothing, precision, and trim. The third meter independently reads Windows' virtual axis while forwarding. Use linear game settings when evaluating an app curve, where available, to avoid stacking curves.
 
@@ -125,20 +135,20 @@ Calibration stays with the selected device and axis. It changes VRudders' interp
 | --- | --- |
 | No first-dot movement | Check USB/PC mode, Refresh, controller selection, and Z. Test the physical device in Windows Game Controllers. |
 | VelocityOne lists only X/Y in the previous beta | Update to 0.2.0. Some systems report zero axes/positions through WinMM. The DirectInput fallback obtains the real X/Y/Z; it never fabricates a Z entry. |
-| Input/processed dots move, virtual dot does not | Start. If unavailable, close VRudders and rerun Setup. Check Device Manager for VRudders Yaw. Save the exact error. |
-| Start immediately stops with “Stopped after an app pause” | Update to beta.4 or later. Beta.3 can mistake slow controller connection for a pause during flight. If it happens during a flight on beta.4, note the pause duration shown, verify physical input, and restart when ready. |
+| Input/processed dots move, virtual dot does not | Start. If unavailable, choose Exit VRudders in the tray menu and rerun Setup. Check Device Manager for VRudders Yaw. Save the exact error. |
+| Stops when Alt-Tabbing, hiding, or restoring | Try the 0.3.0 test candidate: forwarding no longer runs on the window timer. For a “forwarding pause” on 0.3.0, note the duration and exact message, verify physical input, and restart manually. A real forwarding pause or disconnect still centers yaw. |
 | All dots move; game does not bind | Start before launching the game, check HOTAS and conflicting bindings. Separately test Steam Input disabled for that game if needed. |
 | Pedals were unplugged | Wait for rediscovery, verify movement, and Start. If the identity changed, for example after moving USB ports, Refresh and select manually. |
 | Start is disabled after editing | Apply & save, or Reset draft. Duplicate the protected profile to edit it. |
 | Saved settings are invalid | The original file is kept and the app falls back to its protected preset. Back up and repair/move the file to enable saving again. |
-| Another copy is running | Use or close the existing window, including a copy running in another Windows session. Keep one VRudders instance open. |
+| Another copy is running | Use the existing tray icon to show or exit that copy, including a copy running in another Windows session. Keep one VRudders instance running. |
 | Driver setup fails | Keep Windows security enabled. Inspect `C:\Program Files\VRudders\driver-setup.log` and relevant entries in `C:\Windows\INF\setupapi.dev.log`. Rerun Setup or remove the partially installed app through Settings. |
 
 Report the app/Windows/game versions, pedal model, which dots move, and exact error in a [GitHub issue](https://github.com/frayme-app/vRudders/issues). Review logs before sharing local paths/device identifiers. VRudders does not upload diagnostics or collect telemetry. See [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
 ## Uninstall
 
-Close VRudders, then use **Windows Settings → Apps → Installed apps → VRudders → Uninstall**. This removes the app and virtual device, leaving your physical pedals installed. The signed package remains inactive in Windows' Driver Store for reinstall. Game bindings and local profiles/calibration remain. Remove %LOCALAPPDATA%\VRudders yourself if you also want to clear your settings.
+Choose **Exit VRudders** in the tray menu, then use **Windows Settings → Apps → Installed apps → VRudders → Uninstall**. This removes the app and virtual device, leaving your physical pedals installed. The signed package remains inactive in Windows' Driver Store for reinstall. Game bindings and local profiles/calibration remain. Remove %LOCALAPPDATA%\VRudders yourself if you also want to clear your settings.
 
 ## Build from source
 

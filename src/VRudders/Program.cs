@@ -29,7 +29,7 @@ internal static class Program
         {
             const string message = "VRudders is already running. Close the existing copy before starting another or running a driver test.";
             if (args.Length == 2 && args[0] == "--driver-test") File.WriteAllText(args[1], "FAIL: " + message);
-            else if (args.Length == 0) MessageBox.Show(message, "VRudders", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            else if (args.Length == 0 || args.Contains("--tray")) MessageBox.Show(message + " Check the VRudders icon beside the Windows clock (including the ^ arrow).", "VRudders", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return 17;
         }
         if (args.Length == 2 && args[0] == "--ui-self-test")
@@ -39,10 +39,10 @@ internal static class Program
             try
             {
                 ApplicationConfiguration.Initialize();
-                using var testForm = new MainForm { Opacity = 0, ShowInTaskbar = false };
-                testForm.Show(); Application.DoEvents(); testForm.VerifyEditorWorkflow(); testForm.Close();
+                using var testForm = new MainForm(startInTray: false) { Opacity = 0, ShowInTaskbar = false };
+                testForm.Show(); Application.DoEvents(); testForm.VerifyEditorWorkflow(); testForm.RequestTestExit();
                 MainForm.VerifyForwardingWorkflow();
-                File.WriteAllText(args[1], "PASS: protected bypass, new profile defaults, linked endpoints, edit/apply/save/reset, settings round-trip, disconnect identity checks, manual resume; slow forwarding startup, fresh input, real pause/neutral, repeated Start/Stop, input lost during connection. Isolated temporary settings and simulated forwarding; no driver writes.");
+                File.WriteAllText(args[1], "PASS: editor/profiles/settings; slow startup and fresh input; all 65,536 Z values in both directions through the forwarding session; 650 ms blocked UI with continued output; repeated focus/minimize/hide/restore/close transitions; tray-only startup and Start/Stop/Exit; input/readback failure and real forwarding pause center output; manual reconnect/resume; thread ownership. Isolated temporary settings and simulated forwarding; no driver writes.");
                 return 0;
             }
             catch (Exception ex) { File.WriteAllText(args[1], "FAIL: " + ex); return 1; }
@@ -60,7 +60,7 @@ internal static class Program
             catch (Exception ex) { File.WriteAllText(args[1], "FAIL: " + ex); return 1; }
         }
         ApplicationConfiguration.Initialize();
-        using var form = new MainForm();
+        using var form = new MainForm(startInTray: screenshot ? false : args.Contains("--tray") ? true : null);
         if (screenshot)
         {
             form.Opacity = 0; form.ShowInTaskbar = false; form.Show();

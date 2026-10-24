@@ -10,7 +10,7 @@ internal sealed class InstanceGuard : IDisposable
 
     internal static InstanceGuard? TryAcquire(out string reason)
     {
-        reason = "VRudders is already running. Use the existing window, or close it before starting this copy.";
+        reason = "VRudders is already running. Use its tray icon beside the Windows clock to show or exit the existing copy.";
         try
         {
             var mutex = new Mutex(true, Name, out bool created);
