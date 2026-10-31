@@ -5,15 +5,15 @@
 
 **Your pedals. Your response.**
 
-**0.3.0-beta.1 test candidate:** background forwarding and start-in-tray support. Window delays no longer trip the forwarding pause check. See the [release notes](docs/RELEASE-NOTES.md). The latest published installer below is still beta.4 until this candidate is flight-tested and released.
+**VRudders 0.3.0:** background forwarding and start-in-tray support. Window delays no longer trip the forwarding pause check. See the [release notes](docs/RELEASE-NOTES.md).
 
 VRudders reads your pedals in Windows and forwards movement to a virtual joystick you can bind to yaw. Select a controller, select Z, check the moving dots, and fly.
 
-**Early beta · Windows 11 x64 · yaw only.** Beta.4 passed automated regression checks and a local clean-install check after removing the previous app, settings, and driver packages. Beta.3 passed a flight test with Turtle Beach VelocityOne Rudder and a local upgrade test. Other hardware, games, and clean-machine configurations remain unverified. Other controllers that expose WinMM axes can be selected; the DirectInput fallback currently targets VelocityOne Rudder.
+**Windows 11 x64 · yaw only.** The 0.3.0 release candidate passed automated regression checks and a user-confirmed flight test of the background/tray update. Earlier versions passed a local clean-install check and flight testing with Turtle Beach VelocityOne Rudder. Other hardware, games, and clean-machine configurations remain unverified. Other controllers that expose WinMM axes can be selected; the DirectInput fallback currently targets VelocityOne Rudder.
 
 ## Install
 
-1. Download **[VRudders 0.2.0-beta.4 for Windows x64](https://github.com/frayme-app/vRudders/releases/download/v0.2.0-beta.4/VRudders-0.2.0-beta.4-Setup-x64.exe)**. The [release page](https://github.com/frayme-app/vRudders/releases/tag/v0.2.0-beta.4) includes checksums and matching source. You can also [build from source](#build-from-source).
+1. Download **[VRudders 0.3.0 for Windows x64](https://github.com/frayme-app/vRudders/releases/download/v0.3.0/VRudders-0.3.0-Setup-x64.exe)**. The [release page](https://github.com/frayme-app/vRudders/releases/tag/v0.3.0) includes checksums and matching source. You can also [build from source](#build-from-source).
 2. Finish your flight and **exit VRudders**. In versions with close-to-tray, right-click its icon beside the Windows clock and choose **Exit VRudders**; closing the window may only hide it.
 3. Run Setup and follow the [illustrated Windows prompts below](#windows-prompts). It installs the app, bundled .NET runtime, and signed virtual controller driver. Administrator permission is required for setup/removal; normal app use does not require it.
 4. Restart only if requested. Launch **VRudders** from the Start menu.
@@ -60,9 +60,9 @@ If Setup reports **0xE0000242**, run the latest Setup normally, without `/S`, so
 Optional PowerShell verification (official releases should report `Valid`):
 
 ```powershell
-Get-AuthenticodeSignature .\VRudders-0.2.0-beta.4-Setup-x64.exe |
+Get-AuthenticodeSignature .\VRudders-0.3.0-Setup-x64.exe |
     Format-List Status, SignerCertificate
-Get-FileHash .\VRudders-0.2.0-beta.4-Setup-x64.exe -Algorithm SHA256
+Get-FileHash .\VRudders-0.3.0-Setup-x64.exe -Algorithm SHA256
 ```
 
 ## Get flying
@@ -136,7 +136,7 @@ Calibration stays with the selected device and axis. It changes VRudders' interp
 | No first-dot movement | Check USB/PC mode, Refresh, controller selection, and Z. Test the physical device in Windows Game Controllers. |
 | VelocityOne lists only X/Y in the previous beta | Update to 0.2.0. Some systems report zero axes/positions through WinMM. The DirectInput fallback obtains the real X/Y/Z; it never fabricates a Z entry. |
 | Input/processed dots move, virtual dot does not | Start. If unavailable, choose Exit VRudders in the tray menu and rerun Setup. Check Device Manager for VRudders Yaw. Save the exact error. |
-| Stops when Alt-Tabbing, hiding, or restoring | Try the 0.3.0 test candidate: forwarding no longer runs on the window timer. For a “forwarding pause” on 0.3.0, note the duration and exact message, verify physical input, and restart manually. A real forwarding pause or disconnect still centers yaw. |
+| Stops when Alt-Tabbing, hiding, or restoring | Update to 0.3.0: forwarding no longer runs on the window timer. For a “forwarding pause” on 0.3.0, note the duration and exact message, verify physical input, and restart manually. A real forwarding pause or disconnect still centers yaw. |
 | All dots move; game does not bind | Start before launching the game, check HOTAS and conflicting bindings. Separately test Steam Input disabled for that game if needed. |
 | Pedals were unplugged | Wait for rediscovery, verify movement, and Start. If the identity changed, for example after moving USB ports, Refresh and select manually. |
 | Start is disabled after editing | Apply & save, or Reset draft. Duplicate the protected profile to edit it. |
