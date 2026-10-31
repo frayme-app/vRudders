@@ -53,7 +53,7 @@ static DWORD AppRunning(void)
     if (!Process32FirstW(snapshot, &process)) { DWORD code = Error(L"Reading process list"); CloseHandle(snapshot); return code; }
     do {
         if (_wcsicmp(process.szExeFile, L"VRudders.exe") == 0) {
-            fwprintf(stderr, L"Close every VRudders window before installing or removing the driver.\n");
+            fwprintf(stderr, L"Exit VRudders using its tray icon beside the Windows clock before installing or removing the driver. Closing the window may only hide it.\n");
             CloseHandle(snapshot); return ERROR_BUSY;
         }
     } while (Process32NextW(snapshot, &process));

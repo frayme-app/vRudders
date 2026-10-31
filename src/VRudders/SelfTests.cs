@@ -97,11 +97,16 @@ internal static class SelfTests
             SettingsStore.Export(profilePath, profile with { Tuning = aggressive });
             Check(SettingsStore.Import(profilePath).Tuning.Curve == -1, "aggressive profile round trip");
             SettingsStore.TestDirectory = folder;
-            var oldSettings = new UserSettings { Version = 1, Profiles = [profile], SelectedProfile = profile.Id };
+            var oldSettings = new UserSettings { Version = 1, Profiles = [profile], SelectedProfile = profile.Id, MinimizeToTray = false };
             string oldText = System.Text.Json.JsonSerializer.Serialize(oldSettings);
+            var legacySettings = System.Text.Json.Nodes.JsonNode.Parse(oldText)!.AsObject();
+            legacySettings.Remove(nameof(UserSettings.StartInTray)); legacySettings.Remove(nameof(UserSettings.CloseToTray));
+            oldText = legacySettings.ToJsonString();
             File.WriteAllText(SettingsStore.FilePath, oldText);
             var migrated = SettingsStore.Load(out var migrationError);
             Check(migrationError == null && migrated.Version == 2 && migrated.Profiles.Single() == profile, "settings migration preserves custom names and response");
+            Check(!migrated.MinimizeToTray && migrated.CloseToTray && !migrated.StartInTray,
+                "existing minimize preference survives; missing tray settings get defined defaults");
             SettingsStore.Save(migrated);
             Check(File.ReadAllText(Directory.GetFiles(folder, "settings-v1-backup-*.json").Single()) == oldText, "legacy settings backup is exact");
             SettingsStore.TestDirectory = null;

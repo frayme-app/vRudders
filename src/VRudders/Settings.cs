@@ -21,7 +21,9 @@ internal sealed class UserSettings
     public string DeviceKey { get; set; } = "";
     public string Axis { get; set; } = "Z";
     public string SelectedProfile { get; set; } = FlightProfile.BaselineId;
-    public bool MinimizeToTray { get; set; }
+    public bool MinimizeToTray { get; set; } = true;
+    public bool CloseToTray { get; set; } = true;
+    public bool StartInTray { get; set; }
     public List<FlightProfile> Profiles { get; set; } = [];
     public Dictionary<string, Calibration> Calibrations { get; set; } = [];
 

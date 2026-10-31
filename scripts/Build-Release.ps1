@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$')][string]$Version = '0.2.0-beta.4',
+    [ValidatePattern('^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$')][string]$Version = '0.3.0',
     [string]$DriverDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'artifacts/driver'),
     [switch]$Sign,
     [string]$SigningMetadata = (Join-Path (Split-Path $PSScriptRoot -Parent) 'signing.local.json'),
@@ -45,7 +45,7 @@ try {
     $out = Join-Path $build 'release'
     New-Item -ItemType Directory -Force $payload,$out | Out-Null
     $numericVersion = ($Version -split '-')[0] + '.0'
-    & dotnet publish "$root/src/VRudders" -c Release -r win-x64 --self-contained true -o $payload "-p:Version=$Version" "-p:AssemblyVersion=$numericVersion" "-p:FileVersion=$numericVersion" -p:RuntimeFrameworkVersion=10.0.10 -p:DebugType=None -p:DebugSymbols=false
+    & dotnet publish "$root/src/VRudders" -c Release -r win-x64 --self-contained true -o $payload "-p:Version=$Version" "-p:AssemblyVersion=$numericVersion" "-p:FileVersion=$numericVersion" -p:RuntimeFrameworkVersion=10.0.10 -p:DebugType=None -p:DebugSymbols=false --tl:off
     if ($LASTEXITCODE -ne 0) { throw 'App publish failed.' }
     & "$PSScriptRoot/Build-InstallerHelper.ps1" -OutputDirectory "$build/native"
     Copy-Item "$build/native/VRudders.DriverSetup.exe" $payload
